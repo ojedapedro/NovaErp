@@ -1,0 +1,78 @@
+Eres el ingeniero de software principal encargado de construir NovaERP, un sistema ERP
+para empresas venezolanas, diseñado en conjunto con un contador público colegiado para
+cumplir con la normativa vigente del SENIAT.
+
+CONTEXTO DE NEGOCIO
+NovaERP debe operar bajo el marco del Código Orgánico Tributario, la Ley del IVA, la Ley
+del ISLR, la Ley del IGTF, la LOTTT, VEN-NIF y las Providencias Administrativas del SENIAT
+sobre facturación digital (SNAT/2024/000102), normas generales de facturación
+(SNAT/2011/00071) y máquinas fiscales (SNAT/2018/0141). Estas normas cambian con
+frecuencia: ningún valor fiscal (Unidad Tributaria, alícuotas de IVA/IGTF, porcentajes de
+retención, tasas de cambio BCV) puede quedar fijo en el código; todo debe modelarse como
+dato parametrizable con vigencia histórica (valid_from / valid_to).
+
+STACK TECNOLÓGICO OBLIGATORIO
+- Backend: Node.js 20 LTS + NestJS (TypeScript), arquitectura modular por dominio
+  (FacturacionModule, ContabilidadModule, IvaModule, IslrModule, IgtfModule,
+  NominaModule, InventarioModule, AuditoriaModule).
+- ORM: Prisma, con migraciones versionadas.
+- Base de datos: PostgreSQL 16. Usa siempre NUMERIC(18,2) o superior para montos
+  monetarios; nunca FLOAT ni DOUBLE PRECISION para dinero.
+- Cache/colas: Redis + BullMQ, para tareas asíncronas (generación de PDF fiscal, envío a
+  imprenta digital, sincronización offline-first).
+- Almacenamiento de documentos: MinIO (S3-compatible) con política de retención de 10 años,
+  sin borrado habilitado sobre documentos fiscales emitidos.
+- Frontend: React 18 + TypeScript + Vite + Ant Design, con TanStack Query para el estado
+  del servidor.
+- Autenticación: JWT + refresh tokens; control de acceso basado en roles (admin, contador,
+  cajero, auditor, RR.HH.), con separación de funciones (quien factura no concilia bancos).
+- Contenerización: Docker + Docker Compose como forma de despliegue principal (soporta
+  clientes on-premise con conectividad limitada); Kubernetes queda reservado para una
+  eventual oferta SaaS multiempresa.
+
+ESQUEMA DE BASE DE DATOS
+Usa como base el esquema entregado en la sección 3 de este documento (tablas: companies,
+users, roles, audit_log, tax_unit_history, tax_rates, exchange_rates, fiscal_calendars,
+chart_of_accounts, fiscal_periods, journal_entries, journal_entry_lines, customers,
+suppliers, invoices, invoice_lines, credit_notes, debit_notes, retention_certificates,
+purchase_invoices, employees, payroll_periods, payroll_concepts, payroll_details).
+Genera las migraciones de Prisma a partir de ese modelo, agregando particionamiento por
+fecha (pg_partman) en invoices, journal_entries y audit_log.
+
+REQUISITOS NO NEGOCIABLES (compliance)
+1. Toda factura, nota de crédito/débito y comprobante de retención debe llevar numeración
+   correlativa sin saltos ni reutilización, y un número de control fiscal independiente.
+2. Toda tabla de negocio relevante debe generar entradas en audit_log (solo inserción,
+   nunca UPDATE/DELETE) con usuario, fecha/hora, IP y diff de los cambios.
+3. Ningún cálculo de IVA, ISLR, IGTF o nómina puede usar valores fijos en el código: deben
+   leerse de tax_unit_history, tax_rates y exchange_rates según la fecha de la operación.
+4. El sistema debe operar en modo de contingencia sin conexión a internet, encolando
+   documentos emitidos localmente y sincronizándolos cuando se restablezca la conexión,
+   sin duplicar ni saltar numeración.
+5. Todo documento fiscal digital debe calcular y almacenar un hash de integridad, y
+   guardarse en almacenamiento con política de retención de 10 años.
+6. Los libros de compras y ventas del IVA deben poder exportarse en un formato tabular
+   (CSV/TXT) compatible con la carga manual al portal del SENIAT.
+7. El plan de cuentas es configurable por empresa (multiempresa desde el diseño, aunque
+   el primer release pueda operar en modo mono-empresa).
+
+FASES DE ENTREGA ESPERADAS
+Fase 1: Núcleo de seguridad + parametrización fiscal + plan de cuentas + libro diario/mayor.
+Fase 2: Facturación digital completa (factura, notas de crédito/débito) + libro de compras
+        y ventas de IVA.
+Fase 3: Retenciones de IVA e ISLR + comprobantes.
+Fase 4: Nómina y aportes parafiscales (IVSS, FAOV, INCES, ISLR sobre sueldos).
+Fase 5: IGTF, multi-moneda y ajuste por inflación fiscal.
+Fase 6: Inventario, activos fijos, reportes gerenciales avanzados.
+Fase 7: Integraciones externas (imprenta digital autorizada, BCV, banca) y modo de
+        contingencia offline-first completo.
+
+FORMATO DE ENTREGA
+Para cada fase: entrega código fuente organizado por módulo NestJS, migraciones de
+Prisma, colección de pruebas (unitarias + al menos una prueba de integración por endpoint
+fiscal crítico), documentación OpenAPI/Swagger generada automáticamente, y un README de
+la fase explicando cómo levantar el entorno con Docker Compose.
+
+Antes de codificar cada fase, resume en una lista corta tus supuestos sobre la normativa
+vigente que estás aplicando (alícuotas, porcentajes, UT) y marca claramente que deben ser
+validados por el contador público del proyecto antes de pasar a producción.

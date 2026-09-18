@@ -1,0 +1,68 @@
+﻿model IslrConcept {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String  @map("company_id") @db.Uuid
+  code        String  @db.VarChar(10)
+  description String  @db.VarChar(255)
+  // Para personas juridicas
+  rateJuridica Decimal @map("rate_juridica") @db.Decimal(8, 4)
+  // Para personas naturales
+  rateNatural Decimal  @map("rate_natural") @db.Decimal(8, 4)
+  // Sustraendo en UT para personas naturales
+  sustraendoUt Decimal @default(0) @map("sustraendo_ut") @db.Decimal(10, 2)
+  isActive    Boolean @default(true) @map("is_active")
+
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  islrWithholdings IslrWithholding[]
+
+  @@unique([companyId, code])
+  @@map("islr_concepts")
+}
+
+model IvaWithholding {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId           String   @map("company_id") @db.Uuid
+  // Factura de compra sobre la que se practica la retención
+  purchaseInvoiceId   String   @map("purchase_invoice_id") @db.Uuid
+  // Número de comprobante: AAAAMMDD + 8 dígitos correlativos
+  voucherNumber       String   @map("voucher_number") @db.VarChar(20)
+  withholdingDate     DateTime @map("withholding_date") @db.Date
+  // Porcentaje: 75 o 100
+  withholdingPct      Decimal  @map("withholding_pct") @db.Decimal(5, 2)
+  baseAmount          Decimal  @map("base_amount") @db.Decimal(18, 2)
+  ivaAmount           Decimal  @map("iva_amount") @db.Decimal(18, 2)
+  withheldAmount      Decimal  @map("withheld_amount") @db.Decimal(18, 2)
+  status              String   @default("ISSUED") @db.VarChar(20)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseInvoice     PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+
+  @@index([companyId, withholdingDate])
+  @@map("iva_withholdings")
+}
+
+model IslrWithholding {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String   @map("company_id") @db.Uuid
+  supplierId        String   @map("supplier_id") @db.Uuid
+  islrConceptId     String   @map("islr_concept_id") @db.Uuid
+  purchaseInvoiceId String?  @map("purchase_invoice_id") @db.Uuid
+  // Número de comprobante ISLR
+  voucherNumber     String   @map("voucher_number") @db.VarChar(20)
+  withholdingDate   DateTime @map("withholding_date") @db.Date
+  // Tipo persona: JURIDICA o NATURAL
+  personType        String   @map("person_type") @db.VarChar(20)
+  paymentAmount     Decimal  @map("payment_amount") @db.Decimal(18, 2)
+  withholdingRate   Decimal  @map("withholding_rate") @db.Decimal(8, 4)
+  sustraendoBs      Decimal  @default(0) @map("sustraendo_bs") @db.Decimal(18, 2)
+  withheldAmount    Decimal  @map("withheld_amount") @db.Decimal(18, 2)
+  status            String   @default("ISSUED") @db.VarChar(20)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier          Supplier @relation(fields: [supplierId], references: [id])
+  islrConcept       IslrConcept @relation(fields: [islrConceptId], references: [id])
+
+  @@index([companyId, withholdingDate])
+  @@map("islr_withholdings")
+}

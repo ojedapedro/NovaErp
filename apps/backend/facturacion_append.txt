@@ -1,0 +1,13 @@
+﻿  @Get('facturas/:id/pdf')
+  @ApiOperation({ summary: 'Descargar Factura PDF (Providencia 0102)' })
+  async downloadInvoicePdf(
+    @CurrentCompany() companyId: string,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="factura_${id}.pdf"`);
+    
+    // El PdfService escribirá directamente en el stream de respuesta
+    await this.pdfService.generateInvoicePdf(id, companyId, res);
+  }

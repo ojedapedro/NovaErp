@@ -1,0 +1,49 @@
+﻿model Supplier {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  legalName      String    @map("legal_name") @db.VarChar(255)
+  rif            String    @db.VarChar(20)
+  address        String?   @db.Text
+  email          String?   @db.VarChar(255)
+  phone          String?   @db.VarChar(50)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseInvoices PurchaseInvoice[]
+
+  @@unique([companyId, rif])
+  @@map("suppliers")
+}
+
+model PurchaseInvoice {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  supplierId     String    @map("supplier_id") @db.Uuid
+  invoiceNumber  String    @map("invoice_number") @db.VarChar(50)
+  controlNumber  String    @map("control_number") @db.VarChar(50)
+  invoiceDate    DateTime  @map("invoice_date") @db.Date
+  status         String    @default("REGISTERED") @db.VarChar(20)
+  
+  subtotal       Decimal   @db.Decimal(18, 2)
+  exemptAmount   Decimal   @default(0) @map("exempt_amount") @db.Decimal(18, 2)
+  taxAmount      Decimal   @map("tax_amount") @db.Decimal(18, 2)
+  total          Decimal   @db.Decimal(18, 2)
+  
+  currency       String    @default("VES") @db.VarChar(3)
+  exchangeRate   Decimal   @default(1) @map("exchange_rate") @db.Decimal(18, 4)
+  notes          String?   @db.Text
+  
+  // Retenciones aplicadas
+  ivaWithheldAmount Decimal? @map("iva_withheld_amount") @db.Decimal(18, 2)
+  ivaWithholdingNumber String? @map("iva_withholding_number") @db.VarChar(50)
+  
+  journalEntryId String?   @map("journal_entry_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier       Supplier  @relation(fields: [supplierId], references: [id])
+
+  @@index([companyId, invoiceDate])
+  @@map("purchase_invoices")
+}

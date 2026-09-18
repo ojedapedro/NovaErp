@@ -1,0 +1,69 @@
+﻿model CustomerPayment {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String   @map("company_id") @db.Uuid
+  customerId      String   @map("customer_id") @db.Uuid
+  receiptNumber   String   @map("receipt_number") @db.VarChar(20)
+  paymentDate     DateTime @map("payment_date") @db.Date
+  amount          Decimal  @db.Decimal(18, 2)
+  currency        String   @default("VES") @db.VarChar(3)
+  exchangeRate    Decimal  @default(1) @map("exchange_rate") @db.Decimal(18, 6)
+  paymentMethod   String   @map("payment_method") @db.VarChar(50)
+  reference       String?  @db.VarChar(100)
+  status          String   @default("APPLIED") @db.VarChar(20)
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer        Customer @relation(fields: [customerId], references: [id])
+  items           CustomerPaymentItem[]
+
+  @@unique([companyId, receiptNumber])
+  @@map("customer_payments")
+}
+
+model CustomerPaymentItem {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerPaymentId String   @map("customer_payment_id") @db.Uuid
+  invoiceId         String   @map("invoice_id") @db.Uuid
+  amountApplied     Decimal  @map("amount_applied") @db.Decimal(18, 2)
+
+  customerPayment   CustomerPayment @relation(fields: [customerPaymentId], references: [id], onDelete: Cascade)
+  invoice           Invoice         @relation(fields: [invoiceId], references: [id])
+
+  @@map("customer_payment_items")
+}
+
+model SupplierPayment {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String   @map("company_id") @db.Uuid
+  supplierId      String   @map("supplier_id") @db.Uuid
+  receiptNumber   String   @map("receipt_number") @db.VarChar(20)
+  paymentDate     DateTime @map("payment_date") @db.Date
+  amount          Decimal  @db.Decimal(18, 2)
+  currency        String   @default("VES") @db.VarChar(3)
+  exchangeRate    Decimal  @default(1) @map("exchange_rate") @db.Decimal(18, 6)
+  paymentMethod   String   @map("payment_method") @db.VarChar(50)
+  reference       String?  @db.VarChar(100)
+  status          String   @default("APPLIED") @db.VarChar(20)
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  items           SupplierPaymentItem[]
+
+  @@unique([companyId, receiptNumber])
+  @@map("supplier_payments")
+}
+
+model SupplierPaymentItem {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierPaymentId String   @map("supplier_payment_id") @db.Uuid
+  purchaseInvoiceId String   @map("purchase_invoice_id") @db.Uuid
+  amountApplied     Decimal  @map("amount_applied") @db.Decimal(18, 2)
+
+  supplierPayment   SupplierPayment @relation(fields: [supplierPaymentId], references: [id], onDelete: Cascade)
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+
+  @@map("supplier_payment_items")
+}

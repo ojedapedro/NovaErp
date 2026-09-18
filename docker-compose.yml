@@ -1,0 +1,32 @@
+version: '3.9'
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    container_name: nova_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nova_erp
+      POSTGRES_USER: nova_admin
+      POSTGRES_PASSWORD: nova_secure_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nova_admin -d nova_erp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nova_network
+
+volumes:
+  postgres_data:
+
+networks:
+  nova_network:
+    driver: bridge

@@ -1,0 +1,558 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["clientExtensions"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -------------------------------------------------------------
+// CORE & SECURITY
+// -------------------------------------------------------------
+model Company {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legalName     String   @map("legal_name") @db.VarChar(255)
+  rif           String   @unique @map("rif") @db.VarChar(20)
+  fiscalAddress String   @map("fiscal_address") @db.Text
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  users           UserCompanyRole[]
+  chartOfAccounts ChartOfAccount[]
+  fiscalPeriods   FiscalPeriod[]
+  journalEntries  JournalEntry[]
+  customers       Customer[]
+  products        Product[]
+  invoices        Invoice[]
+  Supplier        Supplier[]
+  PurchaseInvoice PurchaseInvoice[]
+  IslrConcept     IslrConcept[]
+  IvaWithholding  IvaWithholding[]
+  IslrWithholding IslrWithholding[]
+  CustomerPayment CustomerPayment[]
+  SupplierPayment SupplierPayment[]
+  Employee        Employee[]
+  PayrollPeriod   PayrollPeriod[]
+
+  @@map("companies")
+}
+
+model User {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String   @unique @db.VarChar(255)
+  passwordHash     String   @map("password_hash") @db.VarChar(255)
+  fullName         String   @map("full_name") @db.VarChar(150)
+  refreshTokenHash String?  @map("refresh_token_hash") @db.VarChar(255)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  companies UserCompanyRole[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String  @unique @db.VarChar(50)
+  description String? @db.VarChar(255)
+
+  users UserCompanyRole[]
+
+  @@map("roles")
+}
+
+model UserCompanyRole {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  roleId    String @map("role_id") @db.Uuid
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@map("user_company_roles")
+}
+
+// -------------------------------------------------------------
+// INSERT-ONLY AUDIT LOG (Partitioned by timestamp via pg_partman)
+// -------------------------------------------------------------
+model AuditLog {
+  id          String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timestamp   DateTime @default(now()) @map("timestamp") @db.Timestamptz(6)
+  companyId   String?  @map("company_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  action      String   @db.VarChar(20)
+  tableName   String   @map("table_name") @db.VarChar(64)
+  recordId    String   @map("record_id") @db.VarChar(64)
+  oldValues   Json?    @map("old_values") @db.JsonB
+  newValues   Json?    @map("new_values") @db.JsonB
+  changesDiff Json?    @map("changes_diff") @db.JsonB
+
+  @@id([id, timestamp])
+  @@index([companyId, timestamp])
+  @@index([tableName, recordId])
+  @@map("audit_log")
+}
+
+// -------------------------------------------------------------
+// FISCAL PARAMETERS (Parametrización Fiscal Histórica)
+// -------------------------------------------------------------
+
+model TaxUnitHistory {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  value      Decimal   @db.Decimal(18, 4) // Valor en Bs
+  validFrom  DateTime  @map("valid_from") @db.Date
+  validTo    DateTime? @map("valid_to") @db.Date
+  resolution String    @db.VarChar(255) // Gaceta Oficial / Providencia
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("tax_unit_history")
+}
+
+model TaxRate {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taxType     String    @map("tax_type") @db.VarChar(50) // IVA_GENERAL, IVA_REDUCIDO, IGTF_DIVISAS, etc.
+  rate        Decimal   @db.Decimal(10, 4) // Ej: 16.0000
+  validFrom   DateTime  @map("valid_from") @db.Date
+  validTo     DateTime? @map("valid_to") @db.Date
+  description String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([taxType, validFrom, validTo])
+  @@map("tax_rates")
+}
+
+model ExchangeRate {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  currencyCode String   @map("currency_code") @db.VarChar(3) // USD, EUR
+  rate         Decimal  @db.Decimal(18, 4) // Tasa BCV
+  date         DateTime @db.Date
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([currencyCode, date])
+  @@map("exchange_rates")
+}
+
+// -------------------------------------------------------------
+// ACCOUNTING (Contabilidad Base)
+// -------------------------------------------------------------
+
+model ChartOfAccount {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  code      String   @db.VarChar(50) // Ej: 1.1.01.01
+  name      String   @db.VarChar(255)
+  type      String   @db.VarChar(50) // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  parentId  String?  @map("parent_id") @db.Uuid
+  isControl Boolean  @default(false) @map("is_control") // Cuenta matriz o de movimiento
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent       ChartOfAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children     ChartOfAccount[]   @relation("AccountHierarchy")
+  journalLines JournalEntryLine[]
+
+  @@unique([companyId, code])
+  @@map("chart_of_accounts")
+}
+
+model FiscalPeriod {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  name      String   @db.VarChar(50) // Ej: Enero 2026
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  status    String   @default("OPEN") @db.VarChar(20) // OPEN, CLOSED
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@map("fiscal_periods")
+}
+
+model JournalEntry {
+  id        String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entryDate DateTime @map("entry_date") @db.Date // Partition key
+  companyId String   @map("company_id") @db.Uuid
+  number    BigInt // Correlativo
+  concept   String   @db.Text
+  isPosted  Boolean  @default(false) @map("is_posted")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines   JournalEntryLine[]
+
+  @@id([id, entryDate])
+  @@index([companyId, entryDate])
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journalEntryId String   @map("journal_entry_id") @db.Uuid
+  entryDate      DateTime @map("entry_date") @db.Date // Para el composite FK
+  accountId      String   @map("account_id") @db.Uuid
+  debit          Decimal  @default(0) @db.Decimal(18, 2)
+  credit         Decimal  @default(0) @db.Decimal(18, 2)
+  description    String?  @db.VarChar(255)
+
+  journalEntry JournalEntry   @relation(fields: [journalEntryId, entryDate], references: [id, entryDate], onDelete: Cascade)
+  account      ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId, entryDate])
+  @@map("journal_entry_lines")
+}
+
+// -------------------------------------------------------------
+// FACTURACIÓN
+// -------------------------------------------------------------
+
+model Customer {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  legalName String   @map("legal_name") @db.VarChar(255)
+  rif       String   @db.VarChar(20)
+  address   String?  @db.Text
+  email     String?  @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices        Invoice[]
+  CustomerPayment CustomerPayment[]
+
+  @@unique([companyId, rif])
+  @@map("customers")
+}
+
+model Product {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  code        String   @db.VarChar(50)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(18, 2)
+  unitMeasure String   @default("UND") @map("unit_measure") @db.VarChar(20)
+  taxType     String   @default("IVA_GENERAL") @map("tax_type") @db.VarChar(30)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceItems InvoiceItem[]
+
+  @@unique([companyId, code])
+  @@map("products")
+}
+
+model Invoice {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  customerId     String   @map("customer_id") @db.Uuid
+  number         BigInt
+  invoiceDate    DateTime @map("invoice_date") @db.Date
+  controlNumber  String?  @map("control_number") @db.VarChar(20)
+  status         String   @default("DRAFT") @db.VarChar(20)
+  subtotal       Decimal  @db.Decimal(18, 2)
+  taxAmount      Decimal  @map("tax_amount") @db.Decimal(18, 2)
+  igtfAmount     Decimal  @default(0) @map("igtf_amount") @db.Decimal(18, 2)
+  total          Decimal  @db.Decimal(18, 2)
+  amountPaid     Decimal  @default(0) @map("amount_paid") @db.Decimal(18, 2)
+  currency       String   @default("USD") @db.VarChar(3)
+  exchangeRate   Decimal  @default(1) @map("exchange_rate") @db.Decimal(18, 4)
+  notes          String?  @db.Text
+  journalEntryId String?  @map("journal_entry_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer            Customer              @relation(fields: [customerId], references: [id])
+  items               InvoiceItem[]
+  CustomerPaymentItem CustomerPaymentItem[]
+
+  @@index([companyId, invoiceDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId   String  @map("invoice_id") @db.Uuid
+  productId   String  @map("product_id") @db.Uuid
+  description String  @db.VarChar(255)
+  quantity    Decimal @db.Decimal(18, 4)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(18, 2)
+  taxRate     Decimal @map("tax_rate") @db.Decimal(10, 4)
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @map("tax_amount") @db.Decimal(18, 2)
+  total       Decimal @db.Decimal(18, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("invoice_items")
+}
+
+model Supplier {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  legalName String   @map("legal_name") @db.VarChar(255)
+  rif       String   @db.VarChar(20)
+  address   String?  @db.Text
+  email     String?  @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseInvoices PurchaseInvoice[]
+  IslrWithholding  IslrWithholding[]
+  SupplierPayment  SupplierPayment[]
+
+  @@unique([companyId, rif])
+  @@map("suppliers")
+}
+
+model PurchaseInvoice {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  supplierId    String   @map("supplier_id") @db.Uuid
+  invoiceNumber String   @map("invoice_number") @db.VarChar(50)
+  controlNumber String   @map("control_number") @db.VarChar(50)
+  invoiceDate   DateTime @map("invoice_date") @db.Date
+  status        String   @default("REGISTERED") @db.VarChar(20)
+
+  subtotal     Decimal @db.Decimal(18, 2)
+  exemptAmount Decimal @default(0) @map("exempt_amount") @db.Decimal(18, 2)
+  taxAmount    Decimal @map("tax_amount") @db.Decimal(18, 2)
+  total        Decimal @db.Decimal(18, 2)
+  amountPaid   Decimal @default(0) @map("amount_paid") @db.Decimal(18, 2)
+
+  currency     String  @default("VES") @db.VarChar(3)
+  exchangeRate Decimal @default(1) @map("exchange_rate") @db.Decimal(18, 4)
+  notes        String? @db.Text
+
+  // Retenciones aplicadas
+  ivaWithheldAmount    Decimal? @map("iva_withheld_amount") @db.Decimal(18, 2)
+  ivaWithholdingNumber String?  @map("iva_withholding_number") @db.VarChar(50)
+
+  journalEntryId String?  @map("journal_entry_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier            Supplier              @relation(fields: [supplierId], references: [id])
+  IvaWithholding      IvaWithholding[]
+  SupplierPaymentItem SupplierPaymentItem[]
+
+  @@index([companyId, invoiceDate])
+  @@map("purchase_invoices")
+}
+
+model IslrConcept {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String  @map("company_id") @db.Uuid
+  code         String  @db.VarChar(10)
+  description  String  @db.VarChar(255)
+  // Para personas juridicas
+  rateJuridica Decimal @map("rate_juridica") @db.Decimal(8, 4)
+  // Para personas naturales
+  rateNatural  Decimal @map("rate_natural") @db.Decimal(8, 4)
+  // Sustraendo en UT para personas naturales
+  sustraendoUt Decimal @default(0) @map("sustraendo_ut") @db.Decimal(10, 2)
+  isActive     Boolean @default(true) @map("is_active")
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  islrWithholdings IslrWithholding[]
+
+  @@unique([companyId, code])
+  @@map("islr_concepts")
+}
+
+model IvaWithholding {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String   @map("company_id") @db.Uuid
+  // Factura de compra sobre la que se practica la retenci�n
+  purchaseInvoiceId String   @map("purchase_invoice_id") @db.Uuid
+  // N�mero de comprobante: AAAAMMDD + 8 d�gitos correlativos
+  voucherNumber     String   @map("voucher_number") @db.VarChar(20)
+  withholdingDate   DateTime @map("withholding_date") @db.Date
+  // Porcentaje: 75 o 100
+  withholdingPct    Decimal  @map("withholding_pct") @db.Decimal(5, 2)
+  baseAmount        Decimal  @map("base_amount") @db.Decimal(18, 2)
+  ivaAmount         Decimal  @map("iva_amount") @db.Decimal(18, 2)
+  withheldAmount    Decimal  @map("withheld_amount") @db.Decimal(18, 2)
+  status            String   @default("ISSUED") @db.VarChar(20)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+
+  @@index([companyId, withholdingDate])
+  @@map("iva_withholdings")
+}
+
+model IslrWithholding {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String   @map("company_id") @db.Uuid
+  supplierId        String   @map("supplier_id") @db.Uuid
+  islrConceptId     String   @map("islr_concept_id") @db.Uuid
+  purchaseInvoiceId String?  @map("purchase_invoice_id") @db.Uuid
+  // N�mero de comprobante ISLR
+  voucherNumber     String   @map("voucher_number") @db.VarChar(20)
+  withholdingDate   DateTime @map("withholding_date") @db.Date
+  // Tipo persona: JURIDICA o NATURAL
+  personType        String   @map("person_type") @db.VarChar(20)
+  paymentAmount     Decimal  @map("payment_amount") @db.Decimal(18, 2)
+  withholdingRate   Decimal  @map("withholding_rate") @db.Decimal(8, 4)
+  sustraendoBs      Decimal  @default(0) @map("sustraendo_bs") @db.Decimal(18, 2)
+  withheldAmount    Decimal  @map("withheld_amount") @db.Decimal(18, 2)
+  status            String   @default("ISSUED") @db.VarChar(20)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier    Supplier    @relation(fields: [supplierId], references: [id])
+  islrConcept IslrConcept @relation(fields: [islrConceptId], references: [id])
+
+  @@index([companyId, withholdingDate])
+  @@map("islr_withholdings")
+}
+
+model CustomerPayment {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  customerId    String   @map("customer_id") @db.Uuid
+  receiptNumber String   @map("receipt_number") @db.VarChar(20)
+  paymentDate   DateTime @map("payment_date") @db.Date
+  amount        Decimal  @db.Decimal(18, 2)
+  currency      String   @default("VES") @db.VarChar(3)
+  exchangeRate  Decimal  @default(1) @map("exchange_rate") @db.Decimal(18, 6)
+  paymentMethod String   @map("payment_method") @db.VarChar(50)
+  reference     String?  @db.VarChar(100)
+  status        String   @default("APPLIED") @db.VarChar(20)
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company  Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer              @relation(fields: [customerId], references: [id])
+  items    CustomerPaymentItem[]
+
+  @@unique([companyId, receiptNumber])
+  @@map("customer_payments")
+}
+
+model CustomerPaymentItem {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerPaymentId String  @map("customer_payment_id") @db.Uuid
+  invoiceId         String  @map("invoice_id") @db.Uuid
+  amountApplied     Decimal @map("amount_applied") @db.Decimal(18, 2)
+
+  customerPayment CustomerPayment @relation(fields: [customerPaymentId], references: [id], onDelete: Cascade)
+  invoice         Invoice         @relation(fields: [invoiceId], references: [id])
+
+  @@map("customer_payment_items")
+}
+
+model SupplierPayment {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  supplierId    String   @map("supplier_id") @db.Uuid
+  receiptNumber String   @map("receipt_number") @db.VarChar(20)
+  paymentDate   DateTime @map("payment_date") @db.Date
+  amount        Decimal  @db.Decimal(18, 2)
+  currency      String   @default("VES") @db.VarChar(3)
+  exchangeRate  Decimal  @default(1) @map("exchange_rate") @db.Decimal(18, 6)
+  paymentMethod String   @map("payment_method") @db.VarChar(50)
+  reference     String?  @db.VarChar(100)
+  status        String   @default("APPLIED") @db.VarChar(20)
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company  Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier Supplier              @relation(fields: [supplierId], references: [id])
+  items    SupplierPaymentItem[]
+
+  @@unique([companyId, receiptNumber])
+  @@map("supplier_payments")
+}
+
+model SupplierPaymentItem {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierPaymentId String  @map("supplier_payment_id") @db.Uuid
+  purchaseInvoiceId String  @map("purchase_invoice_id") @db.Uuid
+  amountApplied     Decimal @map("amount_applied") @db.Decimal(18, 2)
+
+  supplierPayment SupplierPayment @relation(fields: [supplierPaymentId], references: [id], onDelete: Cascade)
+  purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+
+  @@map("supplier_payment_items")
+}
+
+model Employee {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  cedula          String    @db.VarChar(12)
+  firstName       String    @map("first_name") @db.VarChar(80)
+  lastName        String    @map("last_name") @db.VarChar(80)
+  email           String?   @db.VarChar(120)
+  phone           String?   @db.VarChar(20)
+  hireDate        DateTime  @map("hire_date") @db.Date
+  terminationDate DateTime? @map("termination_date") @db.Date
+  position        String    @db.VarChar(100)
+  department      String?   @db.VarChar(100)
+  baseSalary      Decimal   @map("base_salary") @db.Decimal(18, 2)
+  currency        String    @default("VES") @db.VarChar(3)
+  status          String    @default("ACTIVE") @db.VarChar(20)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payrollItems PayrollItem[]
+
+  @@unique([companyId, cedula])
+  @@map("employees")
+}
+
+model PayrollPeriod {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  periodName  String    @map("period_name") @db.VarChar(50)
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  status      String    @default("DRAFT") @db.VarChar(20)
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items   PayrollItem[]
+
+  @@map("payroll_periods")
+}
+
+model PayrollItem {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payrollPeriodId  String   @map("payroll_period_id") @db.Uuid
+  employeeId       String   @map("employee_id") @db.Uuid
+  baseSalary       Decimal  @map("base_salary") @db.Decimal(18, 2)
+  bonos            Decimal  @default(0) @db.Decimal(18, 2)
+  otrosIngresos    Decimal  @default(0) @map("otros_ingresos") @db.Decimal(18, 2)
+  totalIngresos    Decimal  @map("total_ingresos") @db.Decimal(18, 2)
+  deduccionIvss    Decimal  @map("deduccion_ivss") @db.Decimal(18, 2)
+  deduccionFaov    Decimal  @map("deduccion_faov") @db.Decimal(18, 2)
+  deduccionInces   Decimal  @map("deduccion_inces") @db.Decimal(18, 2)
+  islrRetenido     Decimal  @default(0) @map("islr_retenido") @db.Decimal(18, 2)
+  otrasDeduciones  Decimal  @default(0) @map("otras_deducciones") @db.Decimal(18, 2)
+  totalDeducciones Decimal  @map("total_deducciones") @db.Decimal(18, 2)
+  netoPagar        Decimal  @map("neto_pagar") @db.Decimal(18, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollPeriodId, employeeId])
+  @@map("payroll_items")
+}

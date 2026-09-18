@@ -1,0 +1,152 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FacturacionService = void 0;
+const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../../core/database/prisma.service");
+let FacturacionService = class FacturacionService {
+    prisma;
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
+    async findAllCustomers(companyId) {
+        return this.prisma.customer.findMany({
+            where: { companyId, isActive: true },
+            orderBy: { legalName: 'asc' },
+        });
+    }
+    async createCustomer(companyId, dto) {
+        const existing = await this.prisma.customer.findUnique({
+            where: { companyId_rif: { companyId, rif: dto.rif } },
+        });
+        if (existing)
+            throw new common_1.BadRequestException(`Ya existe un cliente con RIF ${dto.rif}`);
+        return this.prisma.customer.create({ data: { ...dto, companyId } });
+    }
+    async updateCustomer(companyId, id, dto) {
+        const customer = await this.prisma.customer.findFirst({ where: { id, companyId } });
+        if (!customer)
+            throw new common_1.NotFoundException('Cliente no encontrado');
+        return this.prisma.customer.update({ where: { id }, data: dto });
+    }
+    async findAllProducts(companyId) {
+        return this.prisma.product.findMany({
+            where: { companyId, isActive: true },
+            orderBy: { name: 'asc' },
+        });
+    }
+    async createProduct(companyId, dto) {
+        const existing = await this.prisma.product.findUnique({
+            where: { companyId_code: { companyId, code: dto.code } },
+        });
+        if (existing)
+            throw new common_1.BadRequestException(`Ya existe un producto con código ${dto.code}`);
+        return this.prisma.product.create({ data: { ...dto, companyId } });
+    }
+    async updateProduct(companyId, id, dto) {
+        const product = await this.prisma.product.findFirst({ where: { id, companyId } });
+        if (!product)
+            throw new common_1.NotFoundException('Producto no encontrado');
+        return this.prisma.product.update({ where: { id }, data: dto });
+    }
+    async findAllInvoices(companyId, params) {
+        return this.prisma.invoice.findMany({
+            where: {
+                companyId,
+                ...(params?.status && { status: params.status }),
+                ...(params?.customerId && { customerId: params.customerId }),
+            },
+            include: {
+                customer: { select: { legalName: true, rif: true } },
+                items: { include: { product: { select: { name: true, code: true } } } },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async createInvoice(companyId, dto) {
+        const ivaRate = await this.prisma.taxRate.findFirst({
+            where: { taxType: 'IVA_GENERAL' },
+            orderBy: { validFrom: 'desc' },
+        });
+        const igtfRate = await this.prisma.taxRate.findFirst({
+            where: { taxType: 'IGTF_DIVISAS' },
+            orderBy: { validFrom: 'desc' },
+        });
+        const ivaPct = Number(ivaRate?.rate ?? 16);
+        const igtfPct = dto.applyIgtf ? Number(igtfRate?.rate ?? 3) : 0;
+        let subtotal = 0;
+        let taxAmount = 0;
+        const itemsData = [];
+        for (const item of dto.items) {
+            const product = await this.prisma.product.findFirst({ where: { id: item.productId, companyId } });
+            if (!product)
+                throw new common_1.NotFoundException(`Producto ${item.productId} no encontrado`);
+            const itemSubtotal = Number(item.quantity) * Number(item.unitPrice);
+            const itemTax = itemSubtotal * (ivaPct / 100);
+            const itemTotal = itemSubtotal + itemTax;
+            subtotal += itemSubtotal;
+            taxAmount += itemTax;
+            itemsData.push({
+                productId: item.productId,
+                description: item.description || product.name,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                taxRate: ivaPct,
+                subtotal: itemSubtotal,
+                taxAmount: itemTax,
+                total: itemTotal,
+            });
+        }
+        const igtfAmount = (subtotal + taxAmount) * (igtfPct / 100);
+        const total = subtotal + taxAmount + igtfAmount;
+        const lastInvoice = await this.prisma.invoice.findFirst({
+            where: { companyId },
+            orderBy: { number: 'desc' },
+            select: { number: true },
+        });
+        const nextNumber = lastInvoice ? Number(lastInvoice.number) + 1 : 1;
+        return this.prisma.invoice.create({
+            data: {
+                companyId,
+                customerId: dto.customerId,
+                number: nextNumber,
+                invoiceDate: new Date(dto.invoiceDate),
+                status: 'ISSUED',
+                subtotal,
+                taxAmount,
+                igtfAmount,
+                total,
+                currency: dto.currency || 'USD',
+                exchangeRate: dto.exchangeRate || 1,
+                notes: dto.notes,
+                items: { create: itemsData },
+            },
+            include: {
+                customer: true,
+                items: { include: { product: { select: { name: true, code: true } } } },
+            },
+        });
+    }
+    async voidInvoice(companyId, id) {
+        const invoice = await this.prisma.invoice.findFirst({ where: { id, companyId } });
+        if (!invoice)
+            throw new common_1.NotFoundException('Factura no encontrada');
+        if (invoice.status === 'VOID')
+            throw new common_1.BadRequestException('La factura ya fue anulada');
+        return this.prisma.invoice.update({ where: { id }, data: { status: 'VOID' } });
+    }
+};
+exports.FacturacionService = FacturacionService;
+exports.FacturacionService = FacturacionService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+], FacturacionService);
+//# sourceMappingURL=facturacion.service.js.map
