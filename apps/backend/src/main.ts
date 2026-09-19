@@ -10,9 +10,23 @@ import { AppModule } from './app.module.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // CORS
+  // CORS - acepta localhost, la URL de producción y cualquier preview de Vercel
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Permitir requests sin origen (Postman, curl, etc.)
+      if (!origin) return callback(null, true);
+      // Permitir cualquier subdominio de vercel.app
+      if (origin.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS bloqueado para origen: ${origin}`), false);
+    },
     credentials: true,
   });
 
