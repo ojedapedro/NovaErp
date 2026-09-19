@@ -103,7 +103,7 @@ export const facturacionApi = {
   },
   downloadPdf: (id: string) => {
     const { token } = useAuthStore.getState();
-    const url = `http://localhost:4000/api/facturacion/facturas/${id}/pdf`;
+    const url = `${import.meta.env.VITE_API_URL || "http://localhost:4000/api"}/facturacion/facturas/${id}/pdf`;
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (r) => {
         if (!r.ok) throw new Error(await r.text());

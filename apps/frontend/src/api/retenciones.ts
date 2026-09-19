@@ -1,4 +1,4 @@
-﻿import apiClient from "./index";
+import apiClient from "./index";
 import { useAuthStore } from "../store/authStore";
 
 export const retencionesApi = {
@@ -13,7 +13,7 @@ export const retencionesApi = {
   },
   downloadIvaTxt: (year: number, month: number) => {
     const { token } = useAuthStore.getState();
-    const url = `http://localhost:4000/api/retenciones/iva/exportar-txt?year=${year}&month=${month}`;
+    const url = `${import.meta.env.VITE_API_URL || "http://localhost:4000/api"}/retenciones/iva/exportar-txt?year=${year}&month=${month}`;
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (r) => {
         if (!r.ok) throw new Error(await r.text());
