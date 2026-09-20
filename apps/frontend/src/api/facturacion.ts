@@ -19,6 +19,7 @@ export interface Product {
   unitPrice: number;
   unitMeasure: string;
   taxType: string;
+  stock: number;
   isActive: boolean;
 }
 

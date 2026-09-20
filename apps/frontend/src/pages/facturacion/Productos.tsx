@@ -65,13 +65,19 @@ export const Productos: React.FC = () => {
   };
 
   const columns = [
-    { title: 'CÃ³digo', dataIndex: 'code', key: 'code', width: '15%' },
+    { title: 'Código', dataIndex: 'code', key: 'code', width: '15%' },
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { 
       title: 'Precio (Base)', 
       dataIndex: 'unitPrice', 
       key: 'unitPrice',
-      render: (val: number) => `$${Number(val).toFixed(2)}`,
+      render: (val: number) => $,
+    },
+    { 
+      title: 'Stock', 
+      dataIndex: 'stock', 
+      key: 'stock',
+      render: (val: number) => <Typography.Text strong>{Number(val || 0).toFixed(2)}</Typography.Text>
     },
     { title: 'Unidad', dataIndex: 'unitMeasure', key: 'unitMeasure' },
     { title: 'Tipo de Impuesto', dataIndex: 'taxType', key: 'taxType' },
