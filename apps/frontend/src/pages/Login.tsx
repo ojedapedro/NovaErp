@@ -12,10 +12,15 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
 
-  const onFinish = async (values: { email: string; password: string }) => {
+  const onFinish = async (values: any) => {
     try {
       setLoading(true);
-      const response = await apiClient.post('/auth/login', values);
+      // Solo enviamos email y password, excluyendo 'remember' que causa el Error 400
+      const payload = {
+        email: values.email,
+        password: values.password
+      };
+      const response = await apiClient.post('/auth/login', payload);
       const { accessToken, user } = response.data;
       setAuth(accessToken, {
         ...user,
@@ -63,14 +68,6 @@ export const Login: React.FC = () => {
             justifyContent: 'center',
             borderRight: '1px solid #e2e8f0'
           }}>
-            {/* SVG Placeholder matching the business chart vibe */}
-            <img 
-              src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" 
-              alt="Business Illustration" 
-              style={{ width: '80%', marginBottom: '24px', opacity: 0, display: 'none' }} 
-            />
-            
-            {/* Custom CSS Illustration alternative since external URLs can be unreliable */}
             <div style={{ marginBottom: 40, position: 'relative', width: 200, height: 160 }}>
                 {/* Simulated charts/people for the placeholder */}
                 <div style={{ position: 'absolute', bottom: 0, left: 10, width: 40, height: 80, backgroundColor: '#cbd5e1', borderRadius: '4px 4px 0 0' }}></div>
