@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Button, Card, Typography, Modal, Form, Input, InputNumber, Select, Switch, message } from 'antd';
+import { Table, Button, Card, Typography, Modal, Form, Input, InputNumber, Select, Switch, message, Tag } from 'antd';
 import { PlusOutlined, EditOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { facturacionApi, type Product } from '../../api/facturacion';
@@ -31,7 +31,8 @@ export const Productos: React.FC = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, dto }: { id: string; dto: Partial<Product> }) => facturacionApi.updateProduct(id, dto),
+    mutationFn: ({ id, dto }: { id: string; dto: Partial<Product> }) =>
+      facturacionApi.updateProduct(id, dto),
     onSuccess: () => {
       message.success('Producto actualizado');
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -65,22 +66,41 @@ export const Productos: React.FC = () => {
   };
 
   const columns = [
-    { title: 'C�digo', dataIndex: 'code', key: 'code', width: '15%' },
+    { title: 'Codigo', dataIndex: 'code', key: 'code', width: '12%' },
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
-    { 
-      title: 'Precio (Base)', 
-      dataIndex: 'unitPrice', 
+    {
+      title: 'Precio (Base)',
+      dataIndex: 'unitPrice',
       key: 'unitPrice',
-      render: (val: number) => $,
+      align: 'right' as const,
+      render: (val: number) => `${Number(val).toFixed(2)} VES`,
     },
-    { 
-      title: 'Stock', 
-      dataIndex: 'stock', 
+    {
+      title: 'Stock',
+      dataIndex: 'stock',
       key: 'stock',
-      render: (val: number) => <Typography.Text strong>{Number(val || 0).toFixed(2)}</Typography.Text>
+      align: 'right' as const,
+      render: (val: number) => (
+        <Tag color={Number(val) > 0 ? 'green' : 'red'}>
+          {Number(val || 0).toFixed(2)}
+        </Tag>
+      ),
     },
     { title: 'Unidad', dataIndex: 'unitMeasure', key: 'unitMeasure' },
-    { title: 'Tipo de Impuesto', dataIndex: 'taxType', key: 'taxType' },
+    {
+      title: 'Impuesto',
+      dataIndex: 'taxType',
+      key: 'taxType',
+      render: (v: string) => {
+        const map: Record<string, { label: string; color: string }> = {
+          IVA_GENERAL: { label: 'IVA 16%', color: 'blue' },
+          IVA_REDUCIDO: { label: 'IVA 8%', color: 'cyan' },
+          EXENTO: { label: 'Exento', color: 'default' },
+        };
+        const info = map[v] || { label: v, color: 'default' };
+        return <Tag color={info.color}>{info.label}</Tag>;
+      },
+    },
     {
       title: 'Acciones',
       key: 'actions',
@@ -93,19 +113,14 @@ export const Productos: React.FC = () => {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Title level={2} style={{ margin: 0 }}>Catálogo de Productos / Servicios</Title>
+        <Title level={2} style={{ margin: 0 }}>Catalogo de Productos / Servicios</Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal()}>
           Nuevo Producto
         </Button>
       </div>
 
       <Card>
-        <Table
-          dataSource={products}
-          columns={columns}
-          rowKey="id"
-          loading={isLoading}
-        />
+        <Table dataSource={products} columns={columns} rowKey="id" loading={isLoading} size="small" />
       </Card>
 
       <Modal
@@ -116,21 +131,31 @@ export const Productos: React.FC = () => {
         confirmLoading={createMutation.isPending || updateMutation.isPending}
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
-          <Form.Item name="code" label="Código SKU" rules={[{ required: true, message: 'Requerido' }]}>
+          <Form.Item name="code" label="Codigo SKU" rules={[{ required: true, message: 'Requerido' }]}>
             <Input />
           </Form.Item>
           <Form.Item name="name" label="Nombre del Producto o Servicio" rules={[{ required: true, message: 'Requerido' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="Descripción (Opcional)">
+          <Form.Item name="description" label="Descripcion (Opcional)">
             <Input.TextArea rows={2} />
           </Form.Item>
-          
+
           <div style={{ display: 'flex', gap: 16 }}>
-            <Form.Item name="unitPrice" label="Precio Base (Sin IVA)" rules={[{ required: true, message: 'Requerido' }]} style={{ flex: 1 }}>
+            <Form.Item
+              name="unitPrice"
+              label="Precio Base (Sin IVA)"
+              rules={[{ required: true, message: 'Requerido' }]}
+              style={{ flex: 1 }}
+            >
               <InputNumber style={{ width: '100%' }} min={0} step={0.01} addonBefore="$" />
             </Form.Item>
-            <Form.Item name="unitMeasure" label="Unidad" rules={[{ required: true, message: 'Requerido' }]} style={{ flex: 1 }}>
+            <Form.Item
+              name="unitMeasure"
+              label="Unidad"
+              rules={[{ required: true, message: 'Requerido' }]}
+              style={{ flex: 1 }}
+            >
               <Select>
                 <Option value="UND">Unidad (UND)</Option>
                 <Option value="KG">Kilogramos (KG)</Option>
