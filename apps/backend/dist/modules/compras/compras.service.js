@@ -30,18 +30,10 @@ let ComprasService = class ComprasService {
         if (existing) {
             throw new common_1.BadRequestException(`El proveedor con RIF ${dto.rif} ya existe`);
         }
-        return this.prisma.supplier.create({
-            data: {
-                ...dto,
-                companyId,
-            },
-        });
+        return this.prisma.supplier.create({ data: { ...dto, companyId } });
     }
     async updateSupplier(companyId, id, dto) {
-        return this.prisma.supplier.update({
-            where: { id, companyId },
-            data: dto,
-        });
+        return this.prisma.supplier.update({ where: { id, companyId }, data: dto });
     }
     async getPurchaseInvoices(companyId) {
         return this.prisma.purchaseInvoice.findMany({
@@ -52,7 +44,7 @@ let ComprasService = class ComprasService {
     }
     async createPurchaseInvoice(companyId, dto) {
         if (!dto.supplierId)
-            throw new common_1.BadRequestException('supplierId is required');
+            throw new common_1.BadRequestException('supplierId es requerido');
         if (!dto.items || !Array.isArray(dto.items) || dto.items.length === 0) {
             throw new common_1.BadRequestException('La factura debe tener al menos un producto (items)');
         }
@@ -67,18 +59,18 @@ let ComprasService = class ComprasService {
             const lineTax = lineSubtotal * tRate;
             const lineTotal = lineSubtotal + lineTax;
             invoiceSubtotal += lineSubtotal;
+            invoiceTaxAmount += lineTax;
             if (tRate === 0)
                 invoiceExempt += lineSubtotal;
-            invoiceTaxAmount += lineTax;
             return {
-                productId: item.productId,
-                description: item.description,
+                productId: item.productId ?? null,
+                description: item.description ?? null,
                 quantity: q,
                 unitPrice: p,
                 taxRate: tRate,
                 subtotal: lineSubtotal,
                 taxAmount: lineTax,
-                total: lineTotal
+                total: lineTotal,
             };
         });
         const invoiceTotal = invoiceSubtotal + invoiceTaxAmount;
@@ -98,31 +90,39 @@ let ComprasService = class ComprasService {
                         amountPaid: 0,
                         currency: dto.currency || 'VES',
                         exchangeRate: dto.exchangeRate || 1,
-                        notes: dto.notes,
-                        items: {
-                            create: invoiceItems
-                        }
+                        notes: dto.notes ?? null,
+                        items: { create: invoiceItems },
                     },
-                    include: { items: true }
+                    include: { items: true },
                 });
                 for (const item of invoiceItems) {
-                    if (item.productId) {
-                        await tx.product.update({
-                            where: { id: item.productId },
-                            data: {
-                                stock: {
-                                    increment: item.quantity
-                                }
-                            }
-                        });
-                    }
+                    if (!item.productId)
+                        continue;
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: { stock: { increment: item.quantity } },
+                    });
+                    await tx.inventoryMovement.create({
+                        data: {
+                            companyId,
+                            productId: item.productId,
+                            movementType: 'IN',
+                            concept: 'COMPRA',
+                            quantity: item.quantity,
+                            unitCost: item.unitPrice,
+                            totalCost: item.subtotal,
+                            referenceId: invoice.id,
+                            referenceNumber: invoice.invoiceNumber,
+                            notes: `Compra según factura ${invoice.invoiceNumber}`,
+                        },
+                    });
                 }
                 return invoice;
             });
         }
         catch (error) {
-            console.error("Error creating purchase invoice:", error);
-            throw new common_1.BadRequestException(error.message || "Error al crear la factura en la base de datos");
+            console.error('Error creating purchase invoice:', error);
+            throw new common_1.BadRequestException(error.message || 'Error al crear la factura en la base de datos');
         }
     }
 };

@@ -193,23 +193,7 @@ export declare class FacturacionController {
         notes: string | null;
     }>;
     voidInvoice(companyId: string, id: string): Promise<{
-        number: bigint;
-        exchangeRate: import("@prisma/client/runtime/library").Decimal;
-        id: string;
-        createdAt: Date;
-        companyId: string;
-        status: string;
-        journalEntryId: string | null;
-        customerId: string;
-        invoiceDate: Date;
-        controlNumber: string | null;
-        subtotal: import("@prisma/client/runtime/library").Decimal;
-        taxAmount: import("@prisma/client/runtime/library").Decimal;
-        igtfAmount: import("@prisma/client/runtime/library").Decimal;
-        total: import("@prisma/client/runtime/library").Decimal;
-        amountPaid: import("@prisma/client/runtime/library").Decimal;
-        currency: string;
-        notes: string | null;
+        message: string;
     }>;
     downloadInvoicePdf(companyId: string, id: string, res: Response): Promise<void>;
 }

@@ -24,6 +24,7 @@ const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
 const nomina_module_1 = require("./modules/nomina/nomina.module");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
+const inventario_module_1 = require("./modules/inventario/inventario.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -52,6 +53,7 @@ exports.AppModule = AppModule = __decorate([
             cxp_module_1.CxpModule,
             dashboard_module_1.DashboardModule,
             nomina_module_1.NominaModule,
+            inventario_module_1.InventarioModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

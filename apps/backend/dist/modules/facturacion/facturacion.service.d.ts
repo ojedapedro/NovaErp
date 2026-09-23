@@ -30,13 +30,7 @@ export declare class FacturacionService {
         address: string | null;
         phone: string | null;
     }>;
-    updateCustomer(companyId: string, id: string, dto: Partial<{
-        legalName: string;
-        rif: string;
-        address: string;
-        email: string;
-        phone: string;
-    }>): Promise<{
+    updateCustomer(companyId: string, id: string, dto: any): Promise<{
         id: string;
         email: string | null;
         isActive: boolean;
@@ -199,22 +193,6 @@ export declare class FacturacionService {
         notes: string | null;
     }>;
     voidInvoice(companyId: string, id: string): Promise<{
-        number: bigint;
-        exchangeRate: import("@prisma/client/runtime/library").Decimal;
-        id: string;
-        createdAt: Date;
-        companyId: string;
-        status: string;
-        journalEntryId: string | null;
-        customerId: string;
-        invoiceDate: Date;
-        controlNumber: string | null;
-        subtotal: import("@prisma/client/runtime/library").Decimal;
-        taxAmount: import("@prisma/client/runtime/library").Decimal;
-        igtfAmount: import("@prisma/client/runtime/library").Decimal;
-        total: import("@prisma/client/runtime/library").Decimal;
-        amountPaid: import("@prisma/client/runtime/library").Decimal;
-        currency: string;
-        notes: string | null;
+        message: string;
     }>;
 }
