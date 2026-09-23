@@ -106,9 +106,7 @@ export class ComprasService {
             }
           },
           include: { items: true }
-        });
-
-        // Actualizar inventario
+        });        // Actualizar inventario y Kardex
         for (const item of invoiceItems) {
           if (item.productId) {
             await tx.product.update({
@@ -117,6 +115,21 @@ export class ComprasService {
                 stock: {
                   increment: item.quantity
                 }
+              }
+            });
+
+            await tx.inventoryMovement.create({
+              data: {
+                companyId,
+                productId: item.productId,
+                movementType: 'IN',
+                concept: 'COMPRA',
+                quantity: item.quantity,
+                unitCost: item.unitPrice,
+                totalCost: item.subtotal,
+                referenceId: invoice.id,
+                referenceNumber: invoice.invoiceNumber,
+                notes: \Compra segun factura \\
               }
             });
           }

@@ -1,0 +1,20 @@
+- [ ] 1. Base de Datos
+  - [ ] Añadir modelo `InventoryMovement` a `schema.prisma`
+  - [ ] Sincronizar Prisma (`db push` y `generate`)
+- [ ] 2. Backend - Módulo de Inventario
+  - [ ] Crear `inventario.module.ts`, `inventario.controller.ts`, `inventario.service.ts`
+  - [ ] Implementar endpoint de Kardex y Movimientos
+  - [ ] Implementar endpoint de Toma Física (Ajustes)
+  - [ ] Integrar `InventarioModule` al `AppModule`
+- [ ] 3. Backend - Integración de Compras y Ventas
+  - [ ] Modificar `compras.service.ts` para registrar en Kardex
+  - [ ] Modificar `facturacion.service.ts` para registrar en Kardex
+- [ ] 4. Frontend - API Client
+  - [ ] Crear `src/api/inventario.ts`
+- [ ] 5. Frontend - Vistas
+  - [ ] Crear vista de `Kardex` (Auditoría)
+  - [ ] Crear vista de `Ajustes` (Toma Física)
+  - [ ] Crear vista de `Valorizado`
+- [ ] 6. Frontend - Navegación
+  - [ ] Registrar rutas en `router/index.tsx`
+  - [ ] Añadir menú de Inventario al Layout/Sidebar

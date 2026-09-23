@@ -1,0 +1,17 @@
+hola necesito que me ayudes a analizar esta carpeta, contiene unos archivos de excel, los cuales getionan administrativamente una empresa de servicio gastronomico, este gestor reporta a una oficina central, es decir que funciona para varias sucursales. Que busco con esto es convertir estos archivos de excel en una web app totalmente almacenable en supabase ya que los datos son relacionales
+
+
+Agente ia antigravity
+
+npx skills add firebase/agent-skills --agent=antigravity
+
+
+Always look for and use the appropriate **Firebase agent skills** to perform tasks related to Firebase.
+
+I want to use Firebase as my backend, using Firebase Authentication and Firestore database.
+
+Set up and use Email/password Authentication and Google Sign-in.
+
+Use my existing Firebase project: angelic-edition-417715
+
+Make sure to register a web app in that project and set up my app's codebase to use Firebase.

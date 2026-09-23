@@ -9,8 +9,20 @@ BigInt.prototype.toJSON = function () {
 };
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_js_1.AppModule);
+    const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        process.env.FRONTEND_URL ?? '',
+    ].filter(Boolean);
     app.enableCors({
-        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+        origin: (origin, callback) => {
+            if (!origin)
+                return callback(null, true);
+            if (origin.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error(`CORS bloqueado para origen: ${origin}`), false);
+        },
         credentials: true,
     });
     app.useGlobalPipes(new common_1.ValidationPipe({

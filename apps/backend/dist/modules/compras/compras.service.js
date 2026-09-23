@@ -46,19 +46,84 @@ let ComprasService = class ComprasService {
     async getPurchaseInvoices(companyId) {
         return this.prisma.purchaseInvoice.findMany({
             where: { companyId },
-            include: { supplier: true },
+            include: { supplier: true, items: true },
             orderBy: { invoiceDate: 'desc' },
         });
     }
     async createPurchaseInvoice(companyId, dto) {
         if (!dto.supplierId)
             throw new common_1.BadRequestException('supplierId is required');
-        return this.prisma.purchaseInvoice.create({
-            data: {
-                ...dto,
-                companyId,
-            },
+        if (!dto.items || !Array.isArray(dto.items) || dto.items.length === 0) {
+            throw new common_1.BadRequestException('La factura debe tener al menos un producto (items)');
+        }
+        let invoiceSubtotal = 0;
+        let invoiceTaxAmount = 0;
+        let invoiceExempt = 0;
+        const invoiceItems = dto.items.map((item) => {
+            const q = Number(item.quantity) || 0;
+            const p = Number(item.unitPrice) || 0;
+            const tRate = Number(item.taxRate) || 0;
+            const lineSubtotal = q * p;
+            const lineTax = lineSubtotal * tRate;
+            const lineTotal = lineSubtotal + lineTax;
+            invoiceSubtotal += lineSubtotal;
+            if (tRate === 0)
+                invoiceExempt += lineSubtotal;
+            invoiceTaxAmount += lineTax;
+            return {
+                productId: item.productId,
+                description: item.description,
+                quantity: q,
+                unitPrice: p,
+                taxRate: tRate,
+                subtotal: lineSubtotal,
+                taxAmount: lineTax,
+                total: lineTotal
+            };
         });
+        const invoiceTotal = invoiceSubtotal + invoiceTaxAmount;
+        try {
+            return await this.prisma.$transaction(async (tx) => {
+                const invoice = await tx.purchaseInvoice.create({
+                    data: {
+                        companyId,
+                        supplierId: dto.supplierId,
+                        invoiceNumber: dto.invoiceNumber,
+                        controlNumber: dto.controlNumber,
+                        invoiceDate: new Date(dto.invoiceDate),
+                        subtotal: invoiceSubtotal,
+                        exemptAmount: invoiceExempt,
+                        taxAmount: invoiceTaxAmount,
+                        total: invoiceTotal,
+                        amountPaid: 0,
+                        currency: dto.currency || 'VES',
+                        exchangeRate: dto.exchangeRate || 1,
+                        notes: dto.notes,
+                        items: {
+                            create: invoiceItems
+                        }
+                    },
+                    include: { items: true }
+                });
+                for (const item of invoiceItems) {
+                    if (item.productId) {
+                        await tx.product.update({
+                            where: { id: item.productId },
+                            data: {
+                                stock: {
+                                    increment: item.quantity
+                                }
+                            }
+                        });
+                    }
+                }
+                return invoice;
+            });
+        }
+        catch (error) {
+            console.error("Error creating purchase invoice:", error);
+            throw new common_1.BadRequestException(error.message || "Error al crear la factura en la base de datos");
+        }
     }
 };
 exports.ComprasService = ComprasService;

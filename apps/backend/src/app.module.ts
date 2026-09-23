@@ -21,6 +21,7 @@ import { NominaModule } from './modules/nomina/nomina.module';
 // App
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { InventarioModule } from './modules/inventario/inventario.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AppService } from './app.service';
     CxpModule,
     DashboardModule,
     NominaModule,
+    InventarioModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -20,22 +20,23 @@ model Company {
   isActive      Boolean  @default(true) @map("is_active")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  users           UserCompanyRole[]
-  chartOfAccounts ChartOfAccount[]
-  fiscalPeriods   FiscalPeriod[]
-  journalEntries  JournalEntry[]
-  customers       Customer[]
-  products        Product[]
-  invoices        Invoice[]
-  Supplier        Supplier[]
-  PurchaseInvoice PurchaseInvoice[]
-  IslrConcept     IslrConcept[]
-  IvaWithholding  IvaWithholding[]
-  IslrWithholding IslrWithholding[]
-  CustomerPayment CustomerPayment[]
-  SupplierPayment SupplierPayment[]
-  Employee        Employee[]
-  PayrollPeriod   PayrollPeriod[]
+  users             UserCompanyRole[]
+  chartOfAccounts   ChartOfAccount[]
+  fiscalPeriods     FiscalPeriod[]
+  journalEntries    JournalEntry[]
+  customers         Customer[]
+  products          Product[]
+  invoices          Invoice[]
+  Supplier          Supplier[]
+  PurchaseInvoice   PurchaseInvoice[]
+  IslrConcept       IslrConcept[]
+  IvaWithholding    IvaWithholding[]
+  IslrWithholding   IslrWithholding[]
+  CustomerPayment   CustomerPayment[]
+  SupplierPayment   SupplierPayment[]
+  Employee          Employee[]
+  PayrollPeriod     PayrollPeriod[]
+  InventoryMovement InventoryMovement[]
 
   @@map("companies")
 }
@@ -250,6 +251,7 @@ model Product {
   company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   invoiceItems        InvoiceItem[]
   PurchaseInvoiceItem PurchaseInvoiceItem[]
+  inventoryMovements  InventoryMovement[]
 
   @@unique([companyId, code])
   @@map("products")
@@ -576,4 +578,25 @@ model PurchaseInvoiceItem {
   product         Product?        @relation(fields: [productId], references: [id])
 
   @@map("purchase_invoice_items")
+}
+
+model InventoryMovement {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String   @map("company_id") @db.Uuid
+  productId       String   @map("product_id") @db.Uuid
+  movementType    String   @map("movement_type") @db.VarChar(20)
+  concept         String   @db.VarChar(100)
+  quantity        Decimal  @db.Decimal(18, 4)
+  unitCost        Decimal  @map("unit_cost") @db.Decimal(18, 2)
+  totalCost       Decimal  @map("total_cost") @db.Decimal(18, 2)
+  referenceId     String?  @map("reference_id") @db.Uuid
+  referenceNumber String?  @map("reference_number") @db.VarChar(50)
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([companyId, productId, createdAt])
+  @@map("inventory_movements")
 }

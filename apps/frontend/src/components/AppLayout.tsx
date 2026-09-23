@@ -9,6 +9,7 @@ import {
   FileTextOutlined,
   DollarOutlined,
   TeamOutlined,
+  DropboxOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -54,21 +55,31 @@ export const AppLayout: React.FC = () => {
       ],
     },
     {
-      key: '/iva',
-      icon: <FileTextOutlined />,
-      label: 'Impuestos',
-      children: [
-        { key: '/iva/libro-ventas', label: 'Libro de Ventas' },
-        { key: '/iva/libro-compras', label: 'Libro de Compras' },
-      ],
-    },
-    {
       key: '/compras',
       icon: <FileTextOutlined />,
       label: 'Compras',
       children: [
         { key: '/compras/proveedores', label: 'Proveedores' },
         { key: '/compras/facturas', label: 'Facturas de Compra' },
+      ],
+    },
+    {
+      key: '/inventario',
+      icon: <DropboxOutlined />,
+      label: 'Inventario',
+      children: [
+        { key: '/inventario/kardex', label: 'Auditoría / Kardex' },
+        { key: '/inventario/valorizado', label: 'Inventario Valorizado' },
+        { key: '/inventario/ajustes', label: 'Toma Física / Ajustes' },
+      ],
+    },
+    {
+      key: '/iva',
+      icon: <FileTextOutlined />,
+      label: 'Impuestos',
+      children: [
+        { key: '/iva/libro-ventas', label: 'Libro de Ventas' },
+        { key: '/iva/libro-compras', label: 'Libro de Compras' },
       ],
     },
     {

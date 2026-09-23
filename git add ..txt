@@ -1,0 +1,12 @@
+git add .
+git commit -m "Añadir versión y scripts para el modo demo"
+git push
+
+
+
+Alexander Rivas telefono 0412-3159533 correo: Brooster.costo@gmail.com (jefe), Sandy Duran 0414-9404819 (jefe) correo: Asistenteadm@tiendask24.com, Genesis Zambrano 0414-4970828 (jefe) correo: genesiscarolina3012@gmail.com, Moiselis Obispo  0424-3682263 correo: moiselis1310@gmail.com  (compañera de trabajo).
+
+
+Gene.2302
+
+agenteia2302

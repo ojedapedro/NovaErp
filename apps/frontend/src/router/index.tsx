@@ -18,6 +18,9 @@ import { LibroVentas } from '../pages/iva/LibroVentas';
 import { LibroCompras } from '../pages/iva/LibroCompras';
 import { Proveedores } from '../pages/compras/Proveedores';
 import { FacturasCompras } from '../pages/compras/FacturasCompras';
+import { Kardex } from '../pages/inventario/Kardex';
+import { Valorizado } from '../pages/inventario/Valorizado';
+import { Ajustes } from '../pages/inventario/Ajustes';
 import { RetencionesIva } from '../pages/retenciones/RetencionesIva';
 import { RetencionesIslr } from '../pages/retenciones/RetencionesIslr';
 import { Cobros } from '../pages/cxc/Cobros';
@@ -98,9 +101,21 @@ export const router = createBrowserRouter([
         path: 'compras/proveedores',
         element: <Proveedores />,
       },
-      {
+            {
         path: 'compras/facturas',
         element: <FacturasCompras />,
+      },
+      {
+        path: 'inventario/kardex',
+        element: <Kardex />,
+      },
+      {
+        path: 'inventario/valorizado',
+        element: <Valorizado />,
+      },
+      {
+        path: 'inventario/ajustes',
+        element: <Ajustes />,
       },
       {
         path: 'retenciones/iva',

@@ -1,11 +1,11 @@
-﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 
 @Injectable()
 export class FacturacionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ── CLIENTES ─────────────────────────────────────────────────────
+  // -- CLIENTES -----------------------------------------------------
   async findAllCustomers(companyId: string) {
     return this.prisma.customer.findMany({
       where: { companyId, isActive: true },
@@ -35,7 +35,7 @@ export class FacturacionService {
     return this.prisma.customer.update({ where: { id }, data: dto });
   }
 
-  // ── PRODUCTOS ────────────────────────────────────────────────────
+  // -- PRODUCTOS ----------------------------------------------------
   async findAllProducts(companyId: string) {
     return this.prisma.product.findMany({
       where: { companyId, isActive: true },
@@ -54,7 +54,7 @@ export class FacturacionService {
     const existing = await this.prisma.product.findUnique({
       where: { companyId_code: { companyId, code: dto.code } },
     });
-    if (existing) throw new BadRequestException(`Ya existe un producto con código ${dto.code}`);
+    if (existing) throw new BadRequestException(`Ya existe un producto con c�digo ${dto.code}`);
     return this.prisma.product.create({ data: { ...dto, companyId } });
   }
 
@@ -64,7 +64,7 @@ export class FacturacionService {
     return this.prisma.product.update({ where: { id }, data: dto });
   }
 
-  // ── FACTURAS ─────────────────────────────────────────────────────
+  // -- FACTURAS -----------------------------------------------------
   async findAllInvoices(companyId: string, params?: { status?: string; customerId?: string }) {
     return this.prisma.invoice.findMany({
       where: {
@@ -144,28 +144,61 @@ export class FacturacionService {
       orderBy: { number: 'desc' },
       select: { number: true },
     });
-    const nextNumber = lastInvoice ? Number(lastInvoice.number) + 1 : 1;
+    const nextNumber = lastInvoice ? Number(lastInvoice.number) + 1 : 1;    return this.prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.create({
+        data: {
+          companyId,
+          customerId: dto.customerId,
+          number: nextNumber,
+          invoiceDate: new Date(dto.invoiceDate),
+          status: 'ISSUED',
+          subtotal,
+          taxAmount,
+          igtfAmount,
+          total,
+          currency: dto.currency || 'USD',
+          exchangeRate: dto.exchangeRate || 1,
+          notes: dto.notes,
+          items: { create: itemsData },
+        },
+        include: {
+          customer: true,
+          items: { include: { product: { select: { name: true, code: true } } } },
+        },
+      });
 
-    return this.prisma.invoice.create({
-      data: {
-        companyId,
-        customerId: dto.customerId,
-        number: nextNumber,
-        invoiceDate: new Date(dto.invoiceDate),
-        status: 'ISSUED',
-        subtotal,
-        taxAmount,
-        igtfAmount,
-        total,
-        currency: dto.currency || 'USD',
-        exchangeRate: dto.exchangeRate || 1,
-        notes: dto.notes,
-        items: { create: itemsData },
-      },
-      include: {
-        customer: true,
-        items: { include: { product: { select: { name: true, code: true } } } },
-      },
+      // Actualizar inventario y Kardex (Salida por Venta)
+      for (const item of itemsData) {
+        if (item.productId) {
+          // Obtener el costo unitario para la salida (idealmente costo promedio, usamos unitPrice base)
+          const p = await tx.product.findUnique({ where: { id: item.productId } });
+          const cost = p ? p.unitPrice : item.unitPrice;
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: { decrement: item.quantity }
+            }
+          });
+
+          await tx.inventoryMovement.create({
+            data: {
+              companyId,
+              productId: item.productId,
+              movementType: 'OUT',
+              concept: 'VENTA',
+              quantity: item.quantity,
+              unitCost: cost,
+              totalCost: Number(item.quantity) * Number(cost),
+              referenceId: invoice.id,
+              referenceNumber: invoice.number.toString(),
+              notes: \Venta seg�n factura \\
+            }
+          });
+        }
+      }
+
+      return invoice;
     });
   }
 
