@@ -17,24 +17,14 @@ export class ComprasService {
     const existing = await this.prisma.supplier.findUnique({
       where: { companyId_rif: { companyId, rif: dto.rif } },
     });
-
     if (existing) {
       throw new BadRequestException(`El proveedor con RIF ${dto.rif} ya existe`);
     }
-
-    return this.prisma.supplier.create({
-      data: {
-        ...dto,
-        companyId,
-      },
-    });
+    return this.prisma.supplier.create({ data: { ...dto, companyId } });
   }
 
   async updateSupplier(companyId: string, id: string, dto: any) {
-    return this.prisma.supplier.update({
-      where: { id, companyId },
-      data: dto,
-    });
+    return this.prisma.supplier.update({ where: { id, companyId }, data: dto });
   }
 
   // ================= FACTURAS DE COMPRA =================
@@ -47,99 +37,97 @@ export class ComprasService {
   }
 
   async createPurchaseInvoice(companyId: string, dto: any) {
-    if (!dto.supplierId) throw new BadRequestException('supplierId is required');
+    if (!dto.supplierId) throw new BadRequestException('supplierId es requerido');
     if (!dto.items || !Array.isArray(dto.items) || dto.items.length === 0) {
       throw new BadRequestException('La factura debe tener al menos un producto (items)');
     }
 
+    // ── Pre-calcular líneas ──────────────────────────────────────────────────
     let invoiceSubtotal = 0;
     let invoiceTaxAmount = 0;
     let invoiceExempt = 0;
-    
-    // Preparar líneas y sumar totales
-    const invoiceItems = dto.items.map((item: any) => {
-      const q = Number(item.quantity) || 0;
-      const p = Number(item.unitPrice) || 0;
-      const tRate = Number(item.taxRate) || 0;
-      const lineSubtotal = q * p;
-      const lineTax = lineSubtotal * tRate;
-      const lineTotal = lineSubtotal + lineTax;
 
-      invoiceSubtotal += lineSubtotal;
+    const invoiceItems = dto.items.map((item: any) => {
+      const q    = Number(item.quantity)  || 0;
+      const p    = Number(item.unitPrice) || 0;
+      const tRate = Number(item.taxRate)  || 0;
+
+      const lineSubtotal = q * p;
+      const lineTax      = lineSubtotal * tRate;
+      const lineTotal    = lineSubtotal + lineTax;
+
+      invoiceSubtotal   += lineSubtotal;
+      invoiceTaxAmount  += lineTax;
       if (tRate === 0) invoiceExempt += lineSubtotal;
-      invoiceTaxAmount += lineTax;
 
       return {
-        productId: item.productId,
-        description: item.description,
-        quantity: q,
-        unitPrice: p,
-        taxRate: tRate,
-        subtotal: lineSubtotal,
-        taxAmount: lineTax,
-        total: lineTotal
+        productId:   item.productId   ?? null,
+        description: item.description ?? null,
+        quantity:    q,
+        unitPrice:   p,
+        taxRate:     tRate,
+        subtotal:    lineSubtotal,
+        taxAmount:   lineTax,
+        total:       lineTotal,
       };
     });
 
     const invoiceTotal = invoiceSubtotal + invoiceTaxAmount;
 
     try {
-      // Transacción: Crear factura, crear items, sumar inventario
       return await this.prisma.$transaction(async (tx) => {
+
+        // 1. Crear la factura con sus líneas
         const invoice = await tx.purchaseInvoice.create({
           data: {
             companyId,
-            supplierId: dto.supplierId,
+            supplierId:    dto.supplierId,
             invoiceNumber: dto.invoiceNumber,
             controlNumber: dto.controlNumber,
-            invoiceDate: new Date(dto.invoiceDate),
-            subtotal: invoiceSubtotal,
-            exemptAmount: invoiceExempt,
-            taxAmount: invoiceTaxAmount,
-            total: invoiceTotal,
-            amountPaid: 0,
-            currency: dto.currency || 'VES',
-            exchangeRate: dto.exchangeRate || 1,
-            notes: dto.notes,
-            items: {
-              create: invoiceItems
-            }
+            invoiceDate:   new Date(dto.invoiceDate),
+            subtotal:      invoiceSubtotal,
+            exemptAmount:  invoiceExempt,
+            taxAmount:     invoiceTaxAmount,
+            total:         invoiceTotal,
+            amountPaid:    0,
+            currency:      dto.currency    || 'VES',
+            exchangeRate:  dto.exchangeRate || 1,
+            notes:         dto.notes       ?? null,
+            items: { create: invoiceItems },
           },
-          include: { items: true }
-        });        // Actualizar inventario y Kardex
-        for (const item of invoiceItems) {
-          if (item.productId) {
-            await tx.product.update({
-              where: { id: item.productId },
-              data: {
-                stock: {
-                  increment: item.quantity
-                }
-              }
-            });
+          include: { items: true },
+        });
 
-            await tx.inventoryMovement.create({
-              data: {
-                companyId,
-                productId: item.productId,
-                movementType: 'IN',
-                concept: 'COMPRA',
-                quantity: item.quantity,
-                unitCost: item.unitPrice,
-                totalCost: item.subtotal,
-                referenceId: invoice.id,
-                referenceNumber: invoice.invoiceNumber,
-                notes: \Compra segun factura \\
-              }
-            });
-          }
+        // 2. Por cada línea con producto: incrementar stock + registrar Kardex
+        for (const item of invoiceItems) {
+          if (!item.productId) continue;
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data:  { stock: { increment: item.quantity } },
+          });
+
+          await tx.inventoryMovement.create({
+            data: {
+              companyId,
+              productId:       item.productId,
+              movementType:    'IN',
+              concept:         'COMPRA',
+              quantity:        item.quantity,
+              unitCost:        item.unitPrice,
+              totalCost:       item.subtotal,
+              referenceId:     invoice.id,
+              referenceNumber: invoice.invoiceNumber,
+              notes:           `Compra según factura ${invoice.invoiceNumber}`,
+            },
+          });
         }
 
         return invoice;
       });
     } catch (error: any) {
-      console.error("Error creating purchase invoice:", error);
-      throw new BadRequestException(error.message || "Error al crear la factura en la base de datos");
+      console.error('Error creating purchase invoice:', error);
+      throw new BadRequestException(error.message || 'Error al crear la factura en la base de datos');
     }
   }
 }

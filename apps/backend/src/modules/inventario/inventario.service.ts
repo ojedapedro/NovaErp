@@ -1,11 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 
 @Injectable()
 export class InventarioService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Obtener Kardex de un producto específico
   async getKardex(companyId: string, productId: string) {
     return this.prisma.inventoryMovement.findMany({
       where: { companyId, productId },
@@ -16,7 +15,6 @@ export class InventarioService {
     });
   }
 
-  // Obtener Inventario Valorizado (Stock x Costo)
   async getInventarioValorizado(companyId: string) {
     const products = await this.prisma.product.findMany({
       where: { companyId, isActive: true },
@@ -26,18 +24,35 @@ export class InventarioService {
         name: true,
         stock: true,
         unitMeasure: true,
-        // Calculate average cost or use unitPrice as a fallback for valuation
         unitPrice: true 
       }
     });
 
-    return products.map(p => ({
-      ...p,
-      valorTotal: Number(p.stock) * Number(p.unitPrice) // basic valuation using base price
-    }));
+    // Calculate average cost from IN movements
+    const inMovements = await this.prisma.inventoryMovement.groupBy({
+      by: ['productId'],
+      where: { companyId, movementType: 'IN' },
+      _sum: { quantity: true, totalCost: true }
+    });
+
+    const costMap = new Map();
+    for (const mov of inMovements) {
+      const totalQty = Number(mov._sum.quantity || 0);
+      const totalCost = Number(mov._sum.totalCost || 0);
+      const avgCost = totalQty > 0 ? totalCost / totalQty : 0;
+      costMap.set(mov.productId, avgCost);
+    }
+
+    return products.map(p => {
+      const avgCost = costMap.get(p.id) || Number(p.unitPrice);
+      return {
+        ...p,
+        costoPromedio: avgCost,
+        valorTotal: Number(p.stock) * avgCost
+      };
+    });
   }
 
-  // Registrar toma física / ajuste
   async registrarAjuste(companyId: string, dto: any) {
     if (!dto.productId || dto.adjustedStock === undefined || dto.adjustedStock === null) {
       throw new BadRequestException('Faltan datos para el ajuste (productId, adjustedStock)');
@@ -62,9 +77,18 @@ export class InventarioService {
       const diff = adjustedStock - currentStock;
       const type = diff > 0 ? 'IN' : 'OUT';
       const absDiff = Math.abs(diff);
-      const totalCost = absDiff * Number(product.unitPrice);
 
-      // Registrar el movimiento
+      // Get avg cost for the adjustment
+      const inMovements = await tx.inventoryMovement.aggregate({
+        where: { companyId, productId: product.id, movementType: 'IN' },
+        _sum: { quantity: true, totalCost: true }
+      });
+      const totalQty = Number(inMovements._sum.quantity || 0);
+      const totalCost = Number(inMovements._sum.totalCost || 0);
+      const avgCost = totalQty > 0 ? totalCost / totalQty : Number(product.unitPrice);
+
+      const adjTotalCost = absDiff * avgCost;
+
       const movement = await tx.inventoryMovement.create({
         data: {
           companyId,
@@ -72,13 +96,12 @@ export class InventarioService {
           movementType: type,
           concept: 'TOMA_FISICA',
           quantity: absDiff,
-          unitCost: product.unitPrice,
-          totalCost: totalCost,
-          notes: dto.notes || `Ajuste físico de ${currentStock} a ${adjustedStock}`,
+          unitCost: avgCost,
+          totalCost: adjTotalCost,
+          notes: dto.notes || ('Ajuste fisico de ' + currentStock + ' a ' + adjustedStock),
         }
       });
 
-      // Actualizar el stock
       await tx.product.update({
         where: { id: product.id },
         data: { stock: adjustedStock }
