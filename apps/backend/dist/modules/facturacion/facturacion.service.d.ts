@@ -53,6 +53,8 @@ export declare class FacturacionService {
         unitPrice: import("@prisma/client/runtime/library").Decimal;
         unitMeasure: string;
         stock: import("@prisma/client/runtime/library").Decimal;
+        lastCost: import("@prisma/client/runtime/library").Decimal;
+        averageCost: import("@prisma/client/runtime/library").Decimal;
     }[]>;
     createProduct(companyId: string, dto: {
         code: string;
@@ -73,6 +75,8 @@ export declare class FacturacionService {
         unitPrice: import("@prisma/client/runtime/library").Decimal;
         unitMeasure: string;
         stock: import("@prisma/client/runtime/library").Decimal;
+        lastCost: import("@prisma/client/runtime/library").Decimal;
+        averageCost: import("@prisma/client/runtime/library").Decimal;
     }>;
     updateProduct(companyId: string, id: string, dto: any): Promise<{
         id: string;
@@ -86,6 +90,8 @@ export declare class FacturacionService {
         unitPrice: import("@prisma/client/runtime/library").Decimal;
         unitMeasure: string;
         stock: import("@prisma/client/runtime/library").Decimal;
+        lastCost: import("@prisma/client/runtime/library").Decimal;
+        averageCost: import("@prisma/client/runtime/library").Decimal;
     }>;
     findAllInvoices(companyId: string, params?: {
         status?: string;

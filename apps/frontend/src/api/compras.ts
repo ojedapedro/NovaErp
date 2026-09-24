@@ -1,4 +1,4 @@
-﻿import apiClient from "./index";
+import apiClient from "./index";
 
 export interface Supplier {
   id: string;
@@ -27,6 +27,19 @@ export interface PurchaseInvoice {
   notes?: string;
   ivaWithheldAmount?: number;
   ivaWithholdingNumber?: string;
+  items?: PurchaseInvoiceItem[];
+}
+
+export interface PurchaseInvoiceItem {
+  id: string;
+  productId?: string;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
 }
 
 export const comprasApi = {

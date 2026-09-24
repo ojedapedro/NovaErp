@@ -2,11 +2,3 @@
 > backend@0.0.1 build C:\Users\Agencia de viajes\OneDrive\Escritorio\Proyectos antigravity\NovaERP\apps\backend
 > nest build
 
-[96msrc/modules/compras/compras.service.ts[0m:[93m108[0m:[93m51[0m - [91merror[0m[90m TS2339: [0mProperty 'averageCost' does not exist on type '{ id: string; isActive: boolean; createdAt: Date; name: string; description: string | null; companyId: string; taxType: string; code: string; unitPrice: Decimal; unitMeasure: string; stock: Decimal; }'.
-
-[7m108[0m             const currentAvgCost = Number(product.averageCost || 0);
-[7m   [0m [91m                                                  ~~~~~~~~~~~[0m
-
-Found 1 error(s).
-
- ELIFECYCLE  Command failed with exit code 1.

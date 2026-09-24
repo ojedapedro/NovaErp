@@ -1,8 +1,9 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Table, Button, Modal, Form, Input, Select, DatePicker, Row, Col, InputNumber, Typography, Divider, Card, message, AutoComplete, Tag } from "antd";
 import { PlusOutlined, DeleteOutlined, AppstoreAddOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { comprasApi, PurchaseInvoice } from "../../api/compras";
+import { comprasApi } from "../../api/compras";
+import type { PurchaseInvoice } from "../../api/compras";
 import { facturacionApi } from "../../api/facturacion";
 import dayjs from "dayjs";
 
