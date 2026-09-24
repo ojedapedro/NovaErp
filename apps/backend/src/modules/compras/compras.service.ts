@@ -1,11 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 
 @Injectable()
 export class ComprasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ================= PROVEEDORES =================
   async getSuppliers(companyId: string) {
     return this.prisma.supplier.findMany({
       where: { companyId },
@@ -18,7 +17,7 @@ export class ComprasService {
       where: { companyId_rif: { companyId, rif: dto.rif } },
     });
     if (existing) {
-      throw new BadRequestException(`El proveedor con RIF ${dto.rif} ya existe`);
+      throw new BadRequestException('El proveedor con RIF ' + dto.rif + ' ya existe');
     }
     return this.prisma.supplier.create({ data: { ...dto, companyId } });
   }
@@ -27,7 +26,6 @@ export class ComprasService {
     return this.prisma.supplier.update({ where: { id, companyId }, data: dto });
   }
 
-  // ================= FACTURAS DE COMPRA =================
   async getPurchaseInvoices(companyId: string) {
     return this.prisma.purchaseInvoice.findMany({
       where: { companyId },
@@ -42,7 +40,6 @@ export class ComprasService {
       throw new BadRequestException('La factura debe tener al menos un producto (items)');
     }
 
-    // ── Pre-calcular líneas ──────────────────────────────────────────────────
     let invoiceSubtotal = 0;
     let invoiceTaxAmount = 0;
     let invoiceExempt = 0;
@@ -62,6 +59,8 @@ export class ComprasService {
 
       return {
         productId:   item.productId   ?? null,
+        productCode: item.productCode ?? null,
+        productName: item.productName ?? null,
         description: item.description ?? null,
         quantity:    q,
         unitPrice:   p,
@@ -76,8 +75,70 @@ export class ComprasService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        const itemsToCreate = [];
 
-        // 1. Crear la factura con sus líneas
+        // 1. Process all products (upsert/update stock & costs) BEFORE creating invoice
+        for (const item of invoiceItems) {
+          let product = null;
+          
+          if (item.productId) {
+            product = await tx.product.findUnique({ where: { id: item.productId } });
+          } else if (item.productCode) {
+            product = await tx.product.findUnique({ where: { companyId_code: { companyId, code: item.productCode } } });
+          }
+
+          if (!product && item.productCode && item.productName) {
+            // Auto-create new product
+            product = await tx.product.create({
+              data: {
+                companyId,
+                code: item.productCode,
+                name: item.productName,
+                taxType: item.taxRate > 0 ? 'IVA_GENERAL' : 'EXENTO',
+                unitPrice: item.unitPrice * 1.3,
+                stock: 0,
+                lastCost: item.unitPrice,
+                averageCost: item.unitPrice
+              }
+            });
+          }
+
+          if (product) {
+            const currentStock = Number(product.stock);
+            const currentAvgCost = Number(product.averageCost || 0);
+            const q = item.quantity;
+            const cost = item.unitPrice;
+
+            // Weighted average cost calculation
+            const totalValueCurrent = currentStock > 0 ? currentStock * currentAvgCost : 0;
+            const totalValuePurchased = q * cost;
+            const newStock = currentStock + q;
+            const newAvgCost = newStock > 0 ? (totalValueCurrent + totalValuePurchased) / newStock : cost;
+
+            await tx.product.update({
+              where: { id: product.id },
+              data: {
+                stock: newStock,
+                lastCost: cost,
+                averageCost: newAvgCost,
+                name: (item.productName && item.productName !== product.name) ? item.productName : undefined
+              }
+            });
+          }
+
+          itemsToCreate.push({
+            productId: product?.id || null,
+            description: item.description || product?.name || null,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            taxRate: item.taxRate,
+            subtotal: item.subtotal,
+            taxAmount: item.taxAmount,
+            total: item.total
+          });
+        }
+
+        // 2. Create Invoice
         const invoice = await tx.purchaseInvoice.create({
           data: {
             companyId,
@@ -93,34 +154,29 @@ export class ComprasService {
             currency:      dto.currency    || 'VES',
             exchangeRate:  dto.exchangeRate || 1,
             notes:         dto.notes       ?? null,
-            items: { create: invoiceItems },
+            items: { create: itemsToCreate },
           },
           include: { items: true },
         });
 
-        // 2. Por cada línea con producto: incrementar stock + registrar Kardex
-        for (const item of invoiceItems) {
-          if (!item.productId) continue;
-
-          await tx.product.update({
-            where: { id: item.productId },
-            data:  { stock: { increment: item.quantity } },
-          });
-
-          await tx.inventoryMovement.create({
-            data: {
-              companyId,
-              productId:       item.productId,
-              movementType:    'IN',
-              concept:         'COMPRA',
-              quantity:        item.quantity,
-              unitCost:        item.unitPrice,
-              totalCost:       item.subtotal,
-              referenceId:     invoice.id,
-              referenceNumber: invoice.invoiceNumber,
-              notes:           `Compra según factura ${invoice.invoiceNumber}`,
-            },
-          });
+        // 3. Register Kardex movements
+        for (const item of itemsToCreate) {
+          if (item.productId) {
+            await tx.inventoryMovement.create({
+              data: {
+                companyId,
+                productId:       item.productId,
+                movementType:    'IN',
+                concept:         'COMPRA',
+                quantity:        item.quantity,
+                unitCost:        item.unitPrice,
+                totalCost:       item.subtotal,
+                referenceId:     invoice.id,
+                referenceNumber: invoice.invoiceNumber,
+                notes:           'Compra segun factura ' + invoice.invoiceNumber,
+              },
+            });
+          }
         }
 
         return invoice;

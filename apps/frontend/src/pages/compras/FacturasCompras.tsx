@@ -1,24 +1,22 @@
-import React, { useState } from "react";
-import { Table, Button, Card, Typography, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, message, Row, Col, Divider, Space } from "antd";
+﻿import React, { useState } from "react";
+import { Table, Button, Modal, Form, Input, Select, DatePicker, Row, Col, Space, InputNumber, Typography, Divider, Card, message, AutoComplete } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { comprasApi, type PurchaseInvoice } from "../../api/compras";
-import { facturacionApi, type Product } from "../../api/facturacion";
+import { comprasApi, PurchaseInvoice, Supplier } from "../../api/compras";
+import { facturacionApi } from "../../api/facturacion";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-export const FacturasCompras: React.FC = () => {
-  const queryClient = useQueryClient();
+export const FacturasCompras = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
-  
-  // Computed totals for UI
+  const queryClient = useQueryClient();
   const [totals, setTotals] = useState({ subtotal: 0, taxAmount: 0, total: 0 });
 
   const { data: invoices, isLoading } = useQuery({
-    queryKey: ["purchase-invoices"],
+    queryKey: ["purchaseInvoices"],
     queryFn: comprasApi.getPurchaseInvoices,
   });
 
@@ -35,39 +33,40 @@ export const FacturasCompras: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: comprasApi.createPurchaseInvoice,
     onSuccess: () => {
-      message.success("Factura de compra registrada y el inventario fue actualizado");
-      queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      message.success("Factura de compra registrada y stock actualizado");
       setIsModalOpen(false);
       form.resetFields();
-      setTotals({ subtotal: 0, taxAmount: 0, total: 0 });
+      queryClient.invalidateQueries({ queryKey: ["purchaseInvoices"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["kardex"] });
+      queryClient.invalidateQueries({ queryKey: ["inventarioValorizado"] });
     },
-    onError: (error: any) => {
-      message.error(error.response?.data?.message || "Error al registrar factura");
+    onError: (err: any) => {
+      message.error(err.response?.data?.message || "Error al registrar la factura");
     },
   });
 
-  // Calculate live totals whenever items change
-  const handleValuesChange = (_changedValues: any, allValues: any) => {
-    if (allValues.items) {
+  const handleValuesChange = (changedValues: any, allValues: any) => {
+    if (changedValues.items) {
       let subtotal = 0;
       let taxAmount = 0;
 
-      allValues.items.forEach((item: any) => {
-        if (item && item.productId && item.quantity && item.unitPrice) {
-          const product = products?.find(p => p.id === item.productId);
-          const taxRate = product?.taxType === 'EXENTO' ? 0 : 0.16;
-          
-          const lineSubtotal = item.quantity * item.unitPrice;
-          subtotal += lineSubtotal;
-          taxAmount += lineSubtotal * taxRate;
-        }
+      allValues.items?.forEach((item: any) => {
+        const q = Number(item?.quantity) || 0;
+        const p = Number(item?.unitPrice) || 0;
+        const taxRate = item?.taxRate ?? 0.16; // default 16%
+        
+        const lineSubtotal = q * p;
+        const lineTax = lineSubtotal * taxRate;
+
+        subtotal += lineSubtotal;
+        taxAmount += lineTax;
       });
 
       setTotals({
         subtotal,
         taxAmount,
-        total: subtotal + taxAmount
+        total: subtotal + taxAmount,
       });
     }
   };
@@ -78,15 +77,6 @@ export const FacturasCompras: React.FC = () => {
       return;
     }
 
-    // Enrich items with correct taxRate before sending
-    const enrichedItems = values.items.map((item: any) => {
-      const product = products?.find(p => p.id === item.productId);
-      return {
-        ...item,
-        taxRate: product?.taxType === 'EXENTO' ? 0 : 0.16
-      };
-    });
-
     const dto = {
       supplierId: values.supplierId,
       invoiceNumber: values.invoiceNumber,
@@ -94,10 +84,35 @@ export const FacturasCompras: React.FC = () => {
       invoiceDate: values.invoiceDate.toISOString(),
       currency: values.currency || "VES",
       notes: values.notes,
-      items: enrichedItems,
+      items: values.items.map((item: any) => ({
+        productCode: item.productCode,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxRate: item.taxRate,
+      })),
     };
     
     createMutation.mutate(dto);
+  };
+
+  const productOptions = products?.map(p => ({
+    value: p.code,
+    label: p.code + " - " + p.name,
+    product: p
+  })) || [];
+
+  const handleProductSelect = (value: string, option: any, namePath: number) => {
+    const items = form.getFieldValue('items');
+    items[namePath] = {
+      ...items[namePath],
+      productCode: option.product.code,
+      productName: option.product.name,
+      taxRate: option.product.taxType === 'EXENTO' ? 0 : 0.16,
+      unitPrice: option.product.lastCost || option.product.unitPrice
+    };
+    form.setFieldsValue({ items });
+    handleValuesChange({ items }, form.getFieldsValue());
   };
 
   const columns = [
@@ -122,31 +137,18 @@ export const FacturasCompras: React.FC = () => {
       render: (v: number) => Number(v).toFixed(2),
     },
     {
-      title: "IVA",
-      dataIndex: "taxAmount",
-      key: "taxAmount",
-      align: "right" as const,
-      render: (v: number) => Number(v).toFixed(2),
-    },
-    {
       title: "Total",
       dataIndex: "total",
       key: "total",
       align: "right" as const,
       render: (v: number) => <Text strong>{Number(v).toFixed(2)}</Text>,
     },
-    {
-      title: "Estado",
-      dataIndex: "status",
-      key: "status",
-      render: (s: string) => <Tag color={s === "VOID" ? "red" : "green"}>{s}</Tag>,
-    },
   ];
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <Title level={2} style={{ margin: 0 }}>Gestión de Compras e Inventario</Title>
+        <Title level={2} style={{ margin: 0 }}>Gestion de Compras e Inventario</Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
           Cargar Factura y Stock
         </Button>
@@ -161,7 +163,7 @@ export const FacturasCompras: React.FC = () => {
         onCancel={() => { setIsModalOpen(false); form.resetFields(); setTotals({ subtotal: 0, taxAmount: 0, total: 0 }); }}
         onOk={() => form.submit()}
         confirmLoading={createMutation.isPending}
-        width={900}
+        width={1000}
         okText="Guardar y Actualizar Stock"
         cancelText="Cancelar"
       >
@@ -193,60 +195,66 @@ export const FacturasCompras: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="invoiceNumber" label="Nº de Factura" rules={[{ required: true }]}>
+              <Form.Item name="invoiceNumber" label="Num Factura" rules={[{ required: true }]}>
                 <Input placeholder="Ej: 000001" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="controlNumber" label="Nº de Control" rules={[{ required: true }]}>
+              <Form.Item name="controlNumber" label="Num Control" rules={[{ required: true }]}>
                 <Input placeholder="Ej: 00-000001" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Divider orientation="left">Productos de la Factura (Ingreso a Inventario)</Divider>
+          <Divider orientation="left">Productos (Busca uno existente o escribe uno nuevo)</Divider>
           
           <Form.List name="items">
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }) => (
-                  <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                    <Form.Item
-                      {...restField}
-                      name={[name, 'productId']}
-                      rules={[{ required: true, message: 'Producto requerido' }]}
-                      style={{ width: 350 }}
-                    >
-                      <Select showSearch placeholder="Seleccionar producto..." optionFilterProp="children">
-                        {products?.map(p => (
-                          <Option key={p.id} value={p.id}>
-                            {p.code} - {p.name} {p.taxType === 'EXENTO' && '(Exento)'}
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-
-                    <Form.Item
-                      {...restField}
-                      name={[name, 'quantity']}
-                      rules={[{ required: true, message: 'Falta cant.' }]}
-                    >
-                      <InputNumber placeholder="Cant." min={0.01} step={1} style={{ width: 100 }} />
-                    </Form.Item>
-
-                    <Form.Item
-                      {...restField}
-                      name={[name, 'unitPrice']}
-                      rules={[{ required: true, message: 'Falta precio' }]}
-                    >
-                      <InputNumber placeholder="Costo Unit." min={0} step={0.01} style={{ width: 140 }} />
-                    </Form.Item>
-
-                    <MinusCircleOutlined onClick={() => remove(name)} style={{ color: 'red', cursor: 'pointer' }} />
-                  </Space>
+                  <Row key={key} gutter={8} style={{ marginBottom: 8 }} align="middle">
+                    <Col span={4}>
+                      <Form.Item {...restField} name={[name, 'productCode']} rules={[{ required: true, message: 'Falta código' }]} style={{ margin: 0 }}>
+                        <AutoComplete
+                          options={productOptions}
+                          onSelect={(val, opt) => handleProductSelect(val, opt, name)}
+                          placeholder="Código"
+                          filterOption={(inputValue, option) =>
+                            option!.label.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                          }
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                      <Form.Item {...restField} name={[name, 'productName']} rules={[{ required: true, message: 'Falta nombre' }]} style={{ margin: 0 }}>
+                        <Input placeholder="Nombre del Producto" />
+                      </Form.Item>
+                    </Col>
+                    <Col span={4}>
+                      <Form.Item {...restField} name={[name, 'quantity']} rules={[{ required: true, message: 'Cant.' }]} style={{ margin: 0 }}>
+                        <InputNumber placeholder="Cant." min={0.01} step={1} style={{ width: '100%' }} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={4}>
+                      <Form.Item {...restField} name={[name, 'unitPrice']} rules={[{ required: true, message: 'Precio' }]} style={{ margin: 0 }}>
+                        <InputNumber placeholder="Costo Unit." min={0} step={0.01} style={{ width: '100%' }} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={3}>
+                      <Form.Item {...restField} name={[name, 'taxRate']} initialValue={0.16} style={{ margin: 0 }}>
+                        <Select>
+                          <Option value={0.16}>IVA 16%</Option>
+                          <Option value={0}>Exento</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                    <Col span={1}>
+                      <DeleteOutlined onClick={() => remove(name)} style={{ color: 'red', cursor: 'pointer', fontSize: 18 }} />
+                    </Col>
+                  </Row>
                 ))}
                 <Form.Item>
-                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginTop: 8 }}>
                     Añadir Producto
                   </Button>
                 </Form.Item>
@@ -278,7 +286,3 @@ export const FacturasCompras: React.FC = () => {
     </div>
   );
 };
-
-const MinusCircleOutlined = ({ onClick, style }: any) => (
-  <DeleteOutlined onClick={onClick} style={style} />
-);
