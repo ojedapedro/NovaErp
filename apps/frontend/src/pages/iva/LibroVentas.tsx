@@ -1,5 +1,5 @@
-﻿import React, { useState } from 'react';
-import { Card, Typography, Table, Button, Select, Space, Tag } from 'antd';
+import React, { useState } from 'react';
+import { Card, Typography, Table, Button, Select, Space, Tag, DatePicker } from 'antd';
 import { DownloadOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { ivaApi, type LibroVentaLinea } from '../../api/iva';
@@ -19,6 +19,10 @@ export const LibroVentas: React.FC = () => {
 
   const handleExportTxt = () => {
     ivaApi.downloadExportTxt(year, month);
+  };
+
+  const handleExportExcel = () => {
+    ivaApi.downloadVentasExcel(year, month);
   };
 
   const columns = [
@@ -47,16 +51,20 @@ export const LibroVentas: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Title level={2} style={{ margin: 0 }}>Libro de Ventas</Title>
         <Space>
-          <Select value={month} onChange={setMonth} style={{ width: 120 }}>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-              <Option key={m} value={m}>{dayjs().month(m - 1).format('MMMM').toUpperCase()}</Option>
-            ))}
-          </Select>
-          <Select value={year} onChange={setYear} style={{ width: 100 }}>
-            {[2024, 2025, 2026, 2027].map(y => (
-              <Option key={y} value={y}>{y}</Option>
-            ))}
-          </Select>
+          <DatePicker 
+            picker="month" 
+            value={dayjs().year(year).month(month - 1)} 
+            onChange={(date) => {
+              if (date) {
+                setYear(date.year());
+                setMonth(date.month() + 1);
+              }
+            }} 
+            allowClear={false}
+          />
+          <Button type="default" onClick={handleExportExcel} disabled={!libro || libro.length === 0}>
+            Exportar Excel
+          </Button>
           <Button type="primary" icon={<DownloadOutlined />} onClick={handleExportTxt} disabled={!libro || libro.length === 0}>
             Exportar TXT (SENIAT)
           </Button>

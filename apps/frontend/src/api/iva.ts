@@ -35,6 +35,17 @@ export const ivaApi = {
       .then(blob => { const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `libro_ventas_${year}_${month}.txt`; a.click(); })
       .catch(e => console.error("Error al descargar TXT Ventas:", e));
   },
+  downloadVentasExcel: (year: number, month: number) => {
+    const { token } = useAuthStore.getState();
+    const url = `${import.meta.env.VITE_API_URL || "http://localhost:4000/api"}/iva/libro-ventas/excel?year=${year}&month=${month}`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async r => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.blob();
+      })
+      .then(blob => { const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `libro_ventas_${year}_${month}.xlsx`; a.click(); })
+      .catch(e => console.error("Error al descargar Excel Ventas:", e));
+  },
   getLibroCompras: async (year: number, month: number): Promise<any[]> => {
     const { data } = await apiClient.get<any[]>('/iva/libro-compras', { params: { year, month } });
     return data;
@@ -49,5 +60,16 @@ export const ivaApi = {
       })
       .then(blob => { const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `libro_compras_${year}_${month}.txt`; a.click(); })
       .catch(e => console.error("Error al descargar TXT Compras:", e));
+  },
+  downloadComprasExcel: (year: number, month: number) => {
+    const { token } = useAuthStore.getState();
+    const url = `${import.meta.env.VITE_API_URL || "http://localhost:4000/api"}/iva/libro-compras/excel?year=${year}&month=${month}`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async r => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.blob();
+      })
+      .then(blob => { const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `libro_compras_${year}_${month}.xlsx`; a.click(); })
+      .catch(e => console.error("Error al descargar Excel Compras:", e));
   },
 };

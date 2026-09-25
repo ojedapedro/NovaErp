@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { facturacionApi, type Customer, type Product } from '../../api/facturacion';
 import dayjs from 'dayjs';
+import { useBarcodeInput } from '../../hooks/useBarcodeInput';
+import { BarcodeScanner } from '../../components/BarcodeScanner';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -43,6 +45,18 @@ export const NuevaFactura: React.FC = () => {
       { id: Date.now().toString(), productId, quantity: 1, unitPrice: product.unitPrice, product }
     ]);
   };
+
+  const handleBarcodeOrQrScan = (code: string) => {
+    if (!products) return;
+    const product = products.find(p => p.code === code || p.id === code);
+    if (product) {
+      handleAddProduct(product.id);
+    } else {
+      message.warning('Producto con código ' + code + ' no encontrado en catálogo');
+    }
+  };
+
+  useBarcodeInput({ onScan: handleBarcodeOrQrScan, enabled: true });
 
   const handleUpdateQuantity = (id: string, quantity: number | null) => {
     setSelectedItems(items => items.map(item => item.id === id ? { ...item, quantity: quantity || 1 } : item));
@@ -145,16 +159,19 @@ export const NuevaFactura: React.FC = () => {
             </Card>
 
             <Card title="Detalle de Productos">
-              <Select 
-                showSearch 
-                placeholder="Buscar y agregar producto..." 
-                style={{ width: '100%', marginBottom: 16 }}
-                value={null}
-                onChange={handleAddProduct}
-                optionFilterProp="children"
-              >
-                {products?.map(p => <Option key={p.id} value={p.id}>{p.code} - {p.name} (${p.unitPrice})</Option>)}
-              </Select>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: 16 }}>
+                <Select 
+                  showSearch 
+                  placeholder="Buscar y agregar producto..." 
+                  style={{ flex: 1 }}
+                  value={null}
+                  onChange={handleAddProduct}
+                  optionFilterProp="children"
+                >
+                  {products?.map(p => <Option key={p.id} value={p.id}>{p.code} - {p.name} | Stock: {p.stock} | ${p.unitPrice}</Option>)}
+                </Select>
+                <BarcodeScanner onScan={handleBarcodeOrQrScan} buttonText='Escanear' />
+              </div>
 
               <Table 
                 dataSource={selectedItems} 

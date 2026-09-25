@@ -3,6 +3,8 @@ import { Card, Typography, Select, InputNumber, Button, Form, Input, message, Ro
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { facturacionApi } from '../../api/facturacion';
 import { inventarioApi } from '../../api/inventario';
+import { useBarcodeInput } from '../../hooks/useBarcodeInput';
+import { BarcodeScanner } from '../../components/BarcodeScanner';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -36,9 +38,21 @@ export const Ajustes: React.FC = () => {
     const product = products?.find(p => p.id === productId);
     setSelectedProduct(product);
     if (product) {
-      form.setFieldsValue({ adjustedStock: Number(product.stock) });
+      form.setFieldsValue({ adjustedStock: Number(product.stock), productId });
     }
   };
+
+  const handleBarcodeOrQrScan = (code: string) => {
+    if (!products) return;
+    const product = products.find(p => p.code === code || p.id === code);
+    if (product) {
+      handleProductChange(product.id);
+    } else {
+      message.warning('Producto con código ' + code + ' no encontrado en catálogo');
+    }
+  };
+
+  useBarcodeInput({ onScan: handleBarcodeOrQrScan, enabled: true });
 
   const handleSave = (values: any) => {
     if (!selectedProduct) return;
@@ -67,16 +81,20 @@ export const Ajustes: React.FC = () => {
           <Card title="Formulario de Ajuste">
             <Form form={form} layout="vertical" onFinish={handleSave}>
               <Form.Item name="productId" label="Producto" rules={[{ required: true, message: 'Selecciona un producto' }]}>
-                <Select
-                  showSearch
-                  placeholder="Selecciona el producto a ajustar"
-                  optionFilterProp="children"
-                  onChange={handleProductChange}
-                >
-                  {products?.map(p => (
-                    <Option key={p.id} value={p.id}>{p.code} - {p.name}</Option>
-                  ))}
-                </Select>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Select
+                    showSearch
+                    placeholder="Selecciona el producto a ajustar"
+                    optionFilterProp="children"
+                    onChange={handleProductChange}
+                    style={{ flex: 1 }}
+                  >
+                    {products?.map(p => (
+                      <Option key={p.id} value={p.id}>{p.code} - {p.name}</Option>
+                    ))}
+                  </Select>
+                  <BarcodeScanner onScan={handleBarcodeOrQrScan} buttonText='Escanear' />
+                </div>
               </Form.Item>
 
               {selectedProduct && (

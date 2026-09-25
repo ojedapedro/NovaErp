@@ -1,7 +1,8 @@
-﻿import { Controller, Get, Query, UseGuards, Res } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards, Res } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Response } from "express";
 import { IvaService } from "./iva.service";
+import { ExcelService } from "./excel.service";
 import { JwtAuthGuard } from "../../core/auth/guards/jwt.guard";
 import { CurrentCompany } from "../../core/auth/decorators/current-user.decorator";
 
@@ -10,7 +11,10 @@ import { CurrentCompany } from "../../core/auth/decorators/current-user.decorato
 @UseGuards(JwtAuthGuard)
 @Controller("iva")
 export class IvaController {
-  constructor(private readonly ivaService: IvaService) {}
+  constructor(
+    private readonly ivaService: IvaService,
+    private readonly excelService: ExcelService
+  ) {}
 
   @Get("libro-ventas")
   @ApiOperation({ summary: "Obtener Libro de Ventas" })
@@ -66,5 +70,33 @@ export class IvaController {
     res.setHeader("Content-Type", "text/plain");
     res.setHeader("Content-Disposition", `attachment; filename="compras_${y}_${m}.txt"`);
     return res.send(txt);
+  }
+
+  @Get("libro-ventas/excel")
+  @ApiOperation({ summary: "Exportar Excel Libro de Ventas" })
+  async exportarVentasExcel(
+    @CurrentCompany() companyId: string,
+    @Query("year") year: string,
+    @Query("month") month: string,
+    @Res() res: Response,
+  ) {
+    const y = parseInt(year) || new Date().getFullYear();
+    const m = parseInt(month) || new Date().getMonth() + 1;
+    const data = await this.ivaService.getLibroVentas(companyId, y, m);
+    return this.excelService.exportVentasToExcel(data, res);
+  }
+
+  @Get("libro-compras/excel")
+  @ApiOperation({ summary: "Exportar Excel Libro de Compras" })
+  async exportarComprasExcel(
+    @CurrentCompany() companyId: string,
+    @Query("year") year: string,
+    @Query("month") month: string,
+    @Res() res: Response,
+  ) {
+    const y = parseInt(year) || new Date().getFullYear();
+    const m = parseInt(month) || new Date().getMonth() + 1;
+    const data = await this.ivaService.getLibroCompras(companyId, y, m);
+    return this.excelService.exportComprasToExcel(data, res);
   }
 }

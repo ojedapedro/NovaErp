@@ -26,6 +26,7 @@ import { RetencionesIslr } from '../pages/retenciones/RetencionesIslr';
 import { Cobros } from '../pages/cxc/Cobros';
 import { Pagos } from '../pages/cxp/Pagos';
 import { NominaBase } from '../pages/nomina/Nomina';
+import { ParametrosFiscales } from '../pages/configuracion/ParametrosFiscales';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {

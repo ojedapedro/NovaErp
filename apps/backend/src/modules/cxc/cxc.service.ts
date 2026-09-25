@@ -1,9 +1,13 @@
-﻿import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
+import { JournalAutomationService } from "../../core/accounting/journal-automation.service";
 
 @Injectable()
 export class CxcService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly journalAutomation: JournalAutomationService
+  ) {}
 
   async getPendingInvoices(companyId: string, customerId?: string) {
     return this.prisma.invoice.findMany({
@@ -11,13 +15,46 @@ export class CxcService {
         companyId,
         ...(customerId && { customerId }),
         status: { not: "VOID" },
-        // Traer facturas donde (total - amountPaid) > 0
       },
       include: {
         customer: true,
       },
       orderBy: { invoiceDate: "asc" },
-    }).then(invoices => invoices.filter(inv => Number(inv.total) - Number(inv.amountPaid) > 0));
+    }).then(invoices => {
+        // TODO: mover a SQL
+        return invoices.filter(inv => Number(inv.total) - Number(inv.amountPaid) > 0);
+    });
+  }
+
+  async getAging(companyId: string) {
+    const invoices = await this.prisma.invoice.findMany({
+      where: { companyId, status: { not: "VOID" } },
+    });
+
+    const aging = {
+      '0-30': 0,
+      '31-60': 0,
+      '61-90': 0,
+      '+90': 0,
+    };
+
+    const today = new Date().getTime();
+
+    for (const inv of invoices) {
+      const balance = Number(inv.total) - Number(inv.amountPaid);
+      if (balance > 0) {
+        const refDate = inv.dueDate ? inv.dueDate.getTime() : inv.invoiceDate.getTime();
+        const diffDays = Math.floor((today - refDate) / (1000 * 60 * 60 * 24));
+        const days = Math.max(0, diffDays);
+
+        if (days <= 30) aging['0-30'] += balance;
+        else if (days <= 60) aging['31-60'] += balance;
+        else if (days <= 90) aging['61-90'] += balance;
+        else aging['+90'] += balance;
+      }
+    }
+
+    return aging;
   }
 
   async getPayments(companyId: string) {
@@ -97,6 +134,12 @@ export class CxcService {
           data: { amountPaid: inv.newAmountPaid }
         });
       }
+
+      await this.journalAutomation.postReceiptEntry(tx, companyId, {
+        referenceNumber: payment.receiptNumber,
+        paymentDate: payment.paymentDate,
+        amount: payment.amount
+      });
 
       return payment;
     });

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ClsModule } from 'nestjs-cls';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 // Core
 import { PrismaModule } from './core/database/prisma.module';
@@ -23,10 +25,17 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { InventarioModule } from './modules/inventario/inventario.module';
 
+// Core Services
+import { AccountingModule } from './core/accounting/accounting.module';
+import { SequenceModule } from './core/sequences/sequence.module';
+
 @Module({
   imports: [
     // Configuración global de variables de entorno
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // Throttler
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
 
     // nestjs-cls: almacena companyId, userId e ipAddress por request
     ClsModule.forRoot({
@@ -42,6 +51,8 @@ import { InventarioModule } from './modules/inventario/inventario.module';
     // Infraestructura
     PrismaModule,
     AuthModule,
+    AccountingModule,
+    SequenceModule,
 
     // Módulos de dominio - Fase 1 & 3
     FiscalParamModule,
@@ -57,6 +68,12 @@ import { InventarioModule } from './modules/inventario/inventario.module';
     InventarioModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

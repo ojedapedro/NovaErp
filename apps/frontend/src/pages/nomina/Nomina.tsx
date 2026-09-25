@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Card, Typography, Table, Button, Space, Modal, Form, Select, DatePicker, Input, InputNumber, message, Tabs, Tag } from "antd";
 import { PlusOutlined, CalculatorOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -52,6 +52,15 @@ export const NominaBase: React.FC = () => {
     onError: (e: any) => message.error(e.response?.data?.message || "Error al calcular nómina")
   });
 
+  const closeMutation = useMutation({
+    mutationFn: nominaApi.closePeriod,
+    onSuccess: () => {
+      message.success("Período de nómina aprobado y cerrado");
+      queryClient.invalidateQueries({ queryKey: ["payroll-periods"] });
+    },
+    onError: (e: any) => message.error(e.response?.data?.message || "Error al cerrar nómina")
+  });
+
   const empColumns = [
     { title: "Cédula", dataIndex: "cedula", key: "cedula" },
     { title: "Nombre Completo", key: "name", render: (_: any, r: any) => `${r.firstName} ${r.lastName}` },
@@ -71,14 +80,28 @@ export const NominaBase: React.FC = () => {
       render: (_: any, r: any) => (
         <Space>
           {r.status === "DRAFT" && (
-            <Button 
-              size="small" 
-              icon={<CalculatorOutlined />} 
-              onClick={() => calcMutation.mutate(r.id)}
-              loading={calcMutation.isPending}
-            >
-              Calcular
-            </Button>
+            <>
+              <Button 
+                size="small" 
+                icon={<CalculatorOutlined />} 
+                onClick={() => calcMutation.mutate(r.id)}
+                loading={calcMutation.isPending}
+              >
+                Calcular
+              </Button>
+              <Button 
+                size="small" 
+                type="primary"
+                onClick={() => Modal.confirm({
+                  title: '¿Aprobar y Cerrar Período?',
+                  content: 'Una vez cerrado, se generará el asiento contable y no se podrá volver a calcular.',
+                  onOk: () => closeMutation.mutate(r.id)
+                })}
+                loading={closeMutation.isPending}
+              >
+                Aprobar y Cerrar
+              </Button>
+            </>
           )}
         </Space>
       )
@@ -89,10 +112,19 @@ export const NominaBase: React.FC = () => {
     const itemsColumns = [
       { title: "Empleado", key: "emp", render: (_: any, r: any) => employees?.find((e:any) => e.id === r.employeeId)?.firstName },
       { title: "Sueldo", dataIndex: "baseSalary", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
-      { title: "IVSS (4%)", dataIndex: "deduccionIvss", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
-      { title: "FAOV (1%)", dataIndex: "deduccionFaov", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
-      { title: "INCES (0.5%)", dataIndex: "deduccionInces", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
+      { title: "IVSS", dataIndex: "deduccionIvss", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
+      { title: "FAOV", dataIndex: "deduccionFaov", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
+      { title: "INCES", dataIndex: "deduccionInces", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
       { title: "Neto a Pagar", dataIndex: "netoPagar", align: "right" as const, render: (v: number) => <strong>{Number(v).toFixed(2)}</strong> },
+      { 
+        title: "Recibo", 
+        key: "recibo", 
+        render: (_: any, r: any) => (
+          <Button size="small" onClick={() => nominaApi.downloadReceipt(period.id, r.employeeId)}>
+            PDF
+          </Button>
+        ) 
+      }
     ];
     return <Table columns={itemsColumns} dataSource={period.items} pagination={false} size="small" rowKey="id" />;
   };

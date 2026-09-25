@@ -1,9 +1,13 @@
-﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { JournalAutomationService } from '../../core/accounting/journal-automation.service';
 
 @Injectable()
 export class ComprasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly journalAutomation: JournalAutomationService
+  ) {}
 
   async getSuppliers(companyId: string) {
     return this.prisma.supplier.findMany({
@@ -178,6 +182,14 @@ export class ComprasService {
             });
           }
         }
+
+        await this.journalAutomation.postPurchaseEntry(tx, companyId, {
+          invoiceNumber: invoice.invoiceNumber,
+          total: invoice.total,
+          subtotal: invoice.subtotal,
+          taxAmount: invoice.taxAmount,
+          issueDate: invoice.invoiceDate
+        }, itemsToCreate);
 
         return invoice;
       });

@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Body, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Body, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { CxcService } from "./cxc.service";
 import { JwtAuthGuard } from "../../core/auth/guards/jwt.guard";
@@ -18,6 +18,12 @@ export class CxcController {
     @Query("customerId") customerId?: string
   ) {
     return this.cxcService.getPendingInvoices(companyId, customerId);
+  }
+
+  @Get("aging")
+  @ApiOperation({ summary: "Obtener antigüedad de saldos (Aging) CxC" })
+  getAging(@CurrentCompany() companyId: string) {
+    return this.cxcService.getAging(companyId);
   }
 
   @Get("pagos")

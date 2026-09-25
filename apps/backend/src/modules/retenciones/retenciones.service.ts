@@ -1,9 +1,13 @@
-﻿import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
+import { JournalAutomationService } from "../../core/accounting/journal-automation.service";
 
 @Injectable()
 export class RetencionesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly journalAutomation: JournalAutomationService
+  ) {}
 
   // ================= RETENCIONES DE IVA =================
   async getIvaWithholdings(companyId: string) {
@@ -48,8 +52,11 @@ export class RetencionesService {
         data: {
           ivaWithheldAmount: withheldAmount,
           ivaWithholdingNumber: dto.voucherNumber,
+          amountPaid: Number(invoice.amountPaid) + withheldAmount
         },
       });
+
+      await this.journalAutomation.postIvaWithholdingEntry(tx, companyId, withholding, invoice);
 
       return withholding;
     });
