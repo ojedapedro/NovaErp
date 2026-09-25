@@ -26,6 +26,9 @@ let CxpController = class CxpController {
     getPendingInvoices(companyId, supplierId) {
         return this.cxpService.getPendingInvoices(companyId, supplierId);
     }
+    getAging(companyId) {
+        return this.cxpService.getAging(companyId);
+    }
     getPayments(companyId) {
         return this.cxpService.getPayments(companyId);
     }
@@ -43,6 +46,14 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], CxpController.prototype, "getPendingInvoices", null);
+__decorate([
+    (0, common_1.Get)("aging"),
+    (0, swagger_1.ApiOperation)({ summary: "Obtener antigüedad de saldos (Aging) CxP" }),
+    __param(0, (0, current_user_decorator_1.CurrentCompany)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CxpController.prototype, "getAging", null);
 __decorate([
     (0, common_1.Get)("pagos"),
     (0, swagger_1.ApiOperation)({ summary: "Listar egresos / pagos a proveedores" }),

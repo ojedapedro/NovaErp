@@ -1,7 +1,9 @@
 import { PrismaService } from "../../core/database/prisma.service";
+import { JournalAutomationService } from "../../core/accounting/journal-automation.service";
 export declare class RetencionesService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly journalAutomation;
+    constructor(prisma: PrismaService, journalAutomation: JournalAutomationService);
     getIvaWithholdings(companyId: string): Promise<({
         purchaseInvoice: {
             supplier: {

@@ -16,12 +16,15 @@ exports.IvaController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const iva_service_1 = require("./iva.service");
+const excel_service_1 = require("./excel.service");
 const jwt_guard_1 = require("../../core/auth/guards/jwt.guard");
 const current_user_decorator_1 = require("../../core/auth/decorators/current-user.decorator");
 let IvaController = class IvaController {
     ivaService;
-    constructor(ivaService) {
+    excelService;
+    constructor(ivaService, excelService) {
         this.ivaService = ivaService;
+        this.excelService = excelService;
     }
     async getLibroVentas(companyId, year, month) {
         const y = parseInt(year) || new Date().getFullYear();
@@ -48,6 +51,18 @@ let IvaController = class IvaController {
         res.setHeader("Content-Type", "text/plain");
         res.setHeader("Content-Disposition", `attachment; filename="compras_${y}_${m}.txt"`);
         return res.send(txt);
+    }
+    async exportarVentasExcel(companyId, year, month, res) {
+        const y = parseInt(year) || new Date().getFullYear();
+        const m = parseInt(month) || new Date().getMonth() + 1;
+        const data = await this.ivaService.getLibroVentas(companyId, y, m);
+        return this.excelService.exportVentasToExcel(data, res);
+    }
+    async exportarComprasExcel(companyId, year, month, res) {
+        const y = parseInt(year) || new Date().getFullYear();
+        const m = parseInt(month) || new Date().getMonth() + 1;
+        const data = await this.ivaService.getLibroCompras(companyId, y, m);
+        return this.excelService.exportComprasToExcel(data, res);
     }
 };
 exports.IvaController = IvaController;
@@ -93,11 +108,34 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String, Object]),
     __metadata("design:returntype", Promise)
 ], IvaController.prototype, "exportarComprasTxt", null);
+__decorate([
+    (0, common_1.Get)("libro-ventas/excel"),
+    (0, swagger_1.ApiOperation)({ summary: "Exportar Excel Libro de Ventas" }),
+    __param(0, (0, current_user_decorator_1.CurrentCompany)()),
+    __param(1, (0, common_1.Query)("year")),
+    __param(2, (0, common_1.Query)("month")),
+    __param(3, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], IvaController.prototype, "exportarVentasExcel", null);
+__decorate([
+    (0, common_1.Get)("libro-compras/excel"),
+    (0, swagger_1.ApiOperation)({ summary: "Exportar Excel Libro de Compras" }),
+    __param(0, (0, current_user_decorator_1.CurrentCompany)()),
+    __param(1, (0, common_1.Query)("year")),
+    __param(2, (0, common_1.Query)("month")),
+    __param(3, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], IvaController.prototype, "exportarComprasExcel", null);
 exports.IvaController = IvaController = __decorate([
     (0, swagger_1.ApiTags)("Impuestos e IVA"),
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard),
     (0, common_1.Controller)("iva"),
-    __metadata("design:paramtypes", [iva_service_1.IvaService])
+    __metadata("design:paramtypes", [iva_service_1.IvaService,
+        excel_service_1.ExcelService])
 ], IvaController);
 //# sourceMappingURL=iva.controller.js.map

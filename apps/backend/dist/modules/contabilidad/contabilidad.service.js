@@ -121,7 +121,12 @@ let ContabilidadService = class ContabilidadService {
             where: { companyId, isActive: true, isControl: false },
             orderBy: { code: 'asc' },
         });
-        const lines = await this.prisma.journalEntryLine.findMany({
+        const linesGrouped = await this.prisma.journalEntryLine.groupBy({
+            by: ['accountId'],
+            _sum: {
+                debit: true,
+                credit: true,
+            },
             where: {
                 journalEntry: {
                     companyId,
@@ -130,10 +135,11 @@ let ContabilidadService = class ContabilidadService {
                 },
             },
         });
+        const linesMap = new Map(linesGrouped.map((g) => [g.accountId, g]));
         return accounts.map((account) => {
-            const accountLines = lines.filter((l) => l.accountId === account.id);
-            const totalDebit = accountLines.reduce((acc, l) => acc + Number(l.debit), 0);
-            const totalCredit = accountLines.reduce((acc, l) => acc + Number(l.credit), 0);
+            const group = linesMap.get(account.id);
+            const totalDebit = Number(group?._sum?.debit || 0);
+            const totalCredit = Number(group?._sum?.credit || 0);
             return {
                 accountCode: account.code,
                 accountName: account.name,

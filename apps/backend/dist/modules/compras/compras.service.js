@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ComprasService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../core/database/prisma.service");
+const journal_automation_service_1 = require("../../core/accounting/journal-automation.service");
 let ComprasService = class ComprasService {
     prisma;
-    constructor(prisma) {
+    journalAutomation;
+    constructor(prisma, journalAutomation) {
         this.prisma = prisma;
+        this.journalAutomation = journalAutomation;
     }
     async getSuppliers(companyId) {
         return this.prisma.supplier.findMany({
@@ -168,6 +171,13 @@ let ComprasService = class ComprasService {
                         });
                     }
                 }
+                await this.journalAutomation.postPurchaseEntry(tx, companyId, {
+                    invoiceNumber: invoice.invoiceNumber,
+                    total: invoice.total,
+                    subtotal: invoice.subtotal,
+                    taxAmount: invoice.taxAmount,
+                    issueDate: invoice.invoiceDate
+                }, itemsToCreate);
                 return invoice;
             });
         }
@@ -180,6 +190,7 @@ let ComprasService = class ComprasService {
 exports.ComprasService = ComprasService;
 exports.ComprasService = ComprasService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        journal_automation_service_1.JournalAutomationService])
 ], ComprasService);
 //# sourceMappingURL=compras.service.js.map

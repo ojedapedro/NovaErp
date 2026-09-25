@@ -6,22 +6,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IvaModule = void 0;
+exports.SequenceModule = void 0;
 const common_1 = require("@nestjs/common");
-const iva_service_1 = require("./iva.service");
-const iva_controller_1 = require("./iva.controller");
-const prisma_module_1 = require("../../core/database/prisma.module");
-const auth_module_1 = require("../../core/auth/auth.module");
-const excel_service_1 = require("./excel.service");
-let IvaModule = class IvaModule {
+const sequence_service_1 = require("./sequence.service");
+const prisma_module_1 = require("../database/prisma.module");
+let SequenceModule = class SequenceModule {
 };
-exports.IvaModule = IvaModule;
-exports.IvaModule = IvaModule = __decorate([
+exports.SequenceModule = SequenceModule;
+exports.SequenceModule = SequenceModule = __decorate([
+    (0, common_1.Global)(),
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, auth_module_1.AuthModule],
-        controllers: [iva_controller_1.IvaController],
-        providers: [iva_service_1.IvaService, excel_service_1.ExcelService],
-        exports: [iva_service_1.IvaService],
+        imports: [prisma_module_1.PrismaModule],
+        providers: [sequence_service_1.SequenceService],
+        exports: [sequence_service_1.SequenceService],
     })
-], IvaModule);
-//# sourceMappingURL=iva.module.js.map
+], SequenceModule);
+//# sourceMappingURL=sequence.module.js.map

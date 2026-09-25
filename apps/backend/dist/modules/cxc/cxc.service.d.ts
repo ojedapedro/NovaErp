@@ -1,7 +1,9 @@
 import { PrismaService } from "../../core/database/prisma.service";
+import { JournalAutomationService } from "../../core/accounting/journal-automation.service";
 export declare class CxcService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly journalAutomation;
+    constructor(prisma: PrismaService, journalAutomation: JournalAutomationService);
     getPendingInvoices(companyId: string, customerId?: string): Promise<({
         customer: {
             id: string;
@@ -33,6 +35,12 @@ export declare class CxcService {
         currency: string;
         notes: string | null;
     })[]>;
+    getAging(companyId: string): Promise<{
+        '0-30': number;
+        '31-60': number;
+        '61-90': number;
+        '+90': number;
+    }>;
     getPayments(companyId: string): Promise<({
         customer: {
             id: string;

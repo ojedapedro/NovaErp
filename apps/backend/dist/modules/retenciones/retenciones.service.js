@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RetencionesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../core/database/prisma.service");
+const journal_automation_service_1 = require("../../core/accounting/journal-automation.service");
 let RetencionesService = class RetencionesService {
     prisma;
-    constructor(prisma) {
+    journalAutomation;
+    constructor(prisma, journalAutomation) {
         this.prisma = prisma;
+        this.journalAutomation = journalAutomation;
     }
     async getIvaWithholdings(companyId) {
         return this.prisma.ivaWithholding.findMany({
@@ -54,8 +57,10 @@ let RetencionesService = class RetencionesService {
                 data: {
                     ivaWithheldAmount: withheldAmount,
                     ivaWithholdingNumber: dto.voucherNumber,
+                    amountPaid: Number(invoice.amountPaid) + withheldAmount
                 },
             });
+            await this.journalAutomation.postIvaWithholdingEntry(tx, companyId, withholding, invoice);
             return withholding;
         });
     }
@@ -148,6 +153,7 @@ let RetencionesService = class RetencionesService {
 exports.RetencionesService = RetencionesService;
 exports.RetencionesService = RetencionesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        journal_automation_service_1.JournalAutomationService])
 ], RetencionesService);
 //# sourceMappingURL=retenciones.service.js.map

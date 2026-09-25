@@ -1,7 +1,9 @@
 import { PrismaService } from '../../core/database/prisma.service';
+import { JournalAutomationService } from '../../core/accounting/journal-automation.service';
 export declare class ComprasService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly journalAutomation;
+    constructor(prisma: PrismaService, journalAutomation: JournalAutomationService);
     getSuppliers(companyId: string): Promise<{
         id: string;
         email: string | null;

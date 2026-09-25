@@ -35,6 +35,12 @@ export declare class CxpController {
         ivaWithheldAmount: import("@prisma/client/runtime/library").Decimal | null;
         ivaWithholdingNumber: string | null;
     })[]>;
+    getAging(companyId: string): Promise<{
+        '0-30': number;
+        '31-60': number;
+        '61-90': number;
+        '+90': number;
+    }>;
     getPayments(companyId: string): Promise<({
         supplier: {
             id: string;

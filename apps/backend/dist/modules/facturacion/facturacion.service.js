@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FacturacionService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../core/database/prisma.service");
+const journal_automation_service_1 = require("../../core/accounting/journal-automation.service");
 let FacturacionService = class FacturacionService {
     prisma;
-    constructor(prisma) {
+    journalAutomation;
+    constructor(prisma, journalAutomation) {
         this.prisma = prisma;
+        this.journalAutomation = journalAutomation;
     }
     async findAllCustomers(companyId) {
         return this.prisma.customer.findMany({
@@ -96,6 +99,13 @@ let FacturacionService = class FacturacionService {
                 await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
                 await tx.inventoryMovement.create({ data: { companyId, productId: item.productId, movementType: 'OUT', concept: 'VENTA', quantity: item.quantity, unitCost: item._cost, totalCost: item.quantity * item._cost, referenceId: invoice.id, referenceNumber: String(invoice.number), notes: 'Venta factura ' + String(invoice.number) } });
             }
+            await this.journalAutomation.postInvoiceEntry(tx, companyId, {
+                invoiceNumber: String(invoice.number),
+                total: invoice.total,
+                subtotal: invoice.subtotal,
+                taxAmount: invoice.taxAmount,
+                issueDate: invoice.invoiceDate
+            }, itemsData);
             return invoice;
         });
     }
@@ -115,6 +125,13 @@ let FacturacionService = class FacturacionService {
                 await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
                 await tx.inventoryMovement.create({ data: { companyId, productId: item.productId, movementType: 'IN', concept: 'ANULACION_VENTA', quantity: item.quantity, unitCost: cost, totalCost: Number(item.quantity) * cost, referenceId: invoice.id, referenceNumber: String(invoice.number), notes: 'Anulacion venta factura ' + String(invoice.number) } });
             }
+            await this.journalAutomation.postInvoiceEntry(tx, companyId, {
+                invoiceNumber: `${invoice.number} (ANULADA)`,
+                total: -Number(invoice.total),
+                subtotal: -Number(invoice.subtotal),
+                taxAmount: -Number(invoice.taxAmount),
+                issueDate: new Date()
+            }, invoice.items);
             return { message: 'Factura ' + String(invoice.number) + ' anulada. Stock revertido.' };
         });
     }
@@ -122,6 +139,7 @@ let FacturacionService = class FacturacionService {
 exports.FacturacionService = FacturacionService;
 exports.FacturacionService = FacturacionService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        journal_automation_service_1.JournalAutomationService])
 ], FacturacionService);
 //# sourceMappingURL=facturacion.service.js.map

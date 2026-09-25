@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CxcService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../core/database/prisma.service");
+const journal_automation_service_1 = require("../../core/accounting/journal-automation.service");
 let CxcService = class CxcService {
     prisma;
-    constructor(prisma) {
+    journalAutomation;
+    constructor(prisma, journalAutomation) {
         this.prisma = prisma;
+        this.journalAutomation = journalAutomation;
     }
     async getPendingInvoices(companyId, customerId) {
         return this.prisma.invoice.findMany({
@@ -28,7 +31,38 @@ let CxcService = class CxcService {
                 customer: true,
             },
             orderBy: { invoiceDate: "asc" },
-        }).then(invoices => invoices.filter(inv => Number(inv.total) - Number(inv.amountPaid) > 0));
+        }).then(invoices => {
+            return invoices.filter(inv => Number(inv.total) - Number(inv.amountPaid) > 0);
+        });
+    }
+    async getAging(companyId) {
+        const invoices = await this.prisma.invoice.findMany({
+            where: { companyId, status: { not: "VOID" } },
+        });
+        const aging = {
+            '0-30': 0,
+            '31-60': 0,
+            '61-90': 0,
+            '+90': 0,
+        };
+        const today = new Date().getTime();
+        for (const inv of invoices) {
+            const balance = Number(inv.total) - Number(inv.amountPaid);
+            if (balance > 0) {
+                const refDate = inv.invoiceDate.getTime();
+                const diffDays = Math.floor((today - refDate) / (1000 * 60 * 60 * 24));
+                const days = Math.max(0, diffDays);
+                if (days <= 30)
+                    aging['0-30'] += balance;
+                else if (days <= 60)
+                    aging['31-60'] += balance;
+                else if (days <= 90)
+                    aging['61-90'] += balance;
+                else
+                    aging['+90'] += balance;
+            }
+        }
+        return aging;
     }
     async getPayments(companyId) {
         return this.prisma.customerPayment.findMany({
@@ -95,6 +129,11 @@ let CxcService = class CxcService {
                     data: { amountPaid: inv.newAmountPaid }
                 });
             }
+            await this.journalAutomation.postReceiptEntry(tx, companyId, {
+                referenceNumber: payment.receiptNumber,
+                paymentDate: payment.paymentDate,
+                amount: payment.amount
+            });
             return payment;
         });
     }
@@ -102,6 +141,7 @@ let CxcService = class CxcService {
 exports.CxcService = CxcService;
 exports.CxcService = CxcService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        journal_automation_service_1.JournalAutomationService])
 ], CxcService);
 //# sourceMappingURL=cxc.service.js.map

@@ -1,8 +1,10 @@
 import { Response } from "express";
 import { IvaService } from "./iva.service";
+import { ExcelService } from "./excel.service";
 export declare class IvaController {
     private readonly ivaService;
-    constructor(ivaService: IvaService);
+    private readonly excelService;
+    constructor(ivaService: IvaService, excelService: ExcelService);
     getLibroVentas(companyId: string, year: string, month: string): Promise<{
         operacion: number;
         fecha: string;
@@ -38,4 +40,6 @@ export declare class IvaController {
         estado: string;
     }[]>;
     exportarComprasTxt(companyId: string, year: string, month: string, res: Response): Promise<Response<any, Record<string, any>>>;
+    exportarVentasExcel(companyId: string, year: string, month: string, res: Response): Promise<void>;
+    exportarComprasExcel(companyId: string, year: string, month: string, res: Response): Promise<void>;
 }

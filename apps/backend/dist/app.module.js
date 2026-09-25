@@ -10,6 +10,8 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const nestjs_cls_1 = require("nestjs-cls");
+const throttler_1 = require("@nestjs/throttler");
+const core_1 = require("@nestjs/core");
 const prisma_module_1 = require("./core/database/prisma.module");
 const auth_module_1 = require("./core/auth/auth.module");
 const fiscal_param_module_1 = require("./modules/fiscal-param/fiscal-param.module");
@@ -25,6 +27,8 @@ const nomina_module_1 = require("./modules/nomina/nomina.module");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const inventario_module_1 = require("./modules/inventario/inventario.module");
+const accounting_module_1 = require("./core/accounting/accounting.module");
+const sequence_module_1 = require("./core/sequences/sequence.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -32,6 +36,7 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
+            throttler_1.ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
             nestjs_cls_1.ClsModule.forRoot({
                 global: true,
                 middleware: {
@@ -43,6 +48,8 @@ exports.AppModule = AppModule = __decorate([
             }),
             prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
+            accounting_module_1.AccountingModule,
+            sequence_module_1.SequenceModule,
             fiscal_param_module_1.FiscalParamModule,
             contabilidad_module_1.ContabilidadModule,
             facturacion_module_1.FacturacionModule,
@@ -56,7 +63,13 @@ exports.AppModule = AppModule = __decorate([
             inventario_module_1.InventarioModule,
         ],
         controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService],
+        providers: [
+            app_service_1.AppService,
+            {
+                provide: core_1.APP_GUARD,
+                useClass: throttler_1.ThrottlerGuard,
+            },
+        ],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map
