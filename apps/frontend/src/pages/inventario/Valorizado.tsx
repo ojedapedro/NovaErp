@@ -26,9 +26,9 @@ export const Valorizado: React.FC = () => {
     },
     { title: 'Unidad', dataIndex: 'unitMeasure', key: 'unitMeasure' },
     {
-      title: 'Costo Base Unit.',
-      dataIndex: 'unitPrice',
-      key: 'unitPrice',
+      title: 'Costo Promedio (Base)',
+      dataIndex: 'costoPromedio',
+      key: 'costoPromedio',
       align: 'right' as const,
       render: (val: number) => `$${Number(val).toFixed(2)}`,
     },

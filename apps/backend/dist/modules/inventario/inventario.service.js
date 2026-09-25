@@ -35,23 +35,13 @@ let InventarioService = class InventarioService {
                 name: true,
                 stock: true,
                 unitMeasure: true,
-                unitPrice: true
+                unitPrice: true,
+                averageCost: true,
+                lastCost: true
             }
         });
-        const inMovements = await this.prisma.inventoryMovement.groupBy({
-            by: ['productId'],
-            where: { companyId, movementType: 'IN' },
-            _sum: { quantity: true, totalCost: true }
-        });
-        const costMap = new Map();
-        for (const mov of inMovements) {
-            const totalQty = Number(mov._sum.quantity || 0);
-            const totalCost = Number(mov._sum.totalCost || 0);
-            const avgCost = totalQty > 0 ? totalCost / totalQty : 0;
-            costMap.set(mov.productId, avgCost);
-        }
         return products.map(p => {
-            const avgCost = costMap.get(p.id) || Number(p.unitPrice);
+            const avgCost = Number(p.averageCost || 0);
             return {
                 ...p,
                 costoPromedio: avgCost,
@@ -78,13 +68,7 @@ let InventarioService = class InventarioService {
             const diff = adjustedStock - currentStock;
             const type = diff > 0 ? 'IN' : 'OUT';
             const absDiff = Math.abs(diff);
-            const inMovements = await tx.inventoryMovement.aggregate({
-                where: { companyId, productId: product.id, movementType: 'IN' },
-                _sum: { quantity: true, totalCost: true }
-            });
-            const totalQty = Number(inMovements._sum.quantity || 0);
-            const totalCost = Number(inMovements._sum.totalCost || 0);
-            const avgCost = totalQty > 0 ? totalCost / totalQty : Number(product.unitPrice);
+            const avgCost = Number(product.averageCost || 0);
             const adjTotalCost = absDiff * avgCost;
             const movement = await tx.inventoryMovement.create({
                 data: {
@@ -95,7 +79,7 @@ let InventarioService = class InventarioService {
                     quantity: absDiff,
                     unitCost: avgCost,
                     totalCost: adjTotalCost,
-                    notes: dto.notes || ('Ajuste fisico de ' + currentStock + ' a ' + adjustedStock),
+                    notes: dto.notes || `Ajuste físico de ${currentStock} a ${adjustedStock}`,
                 }
             });
             await tx.product.update({

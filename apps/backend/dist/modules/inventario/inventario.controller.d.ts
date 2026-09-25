@@ -3,7 +3,7 @@ export declare class InventarioController {
     private readonly inventarioService;
     constructor(inventarioService: InventarioService);
     getInventarioValorizado(companyId: string): Promise<{
-        costoPromedio: any;
+        costoPromedio: number;
         valorTotal: number;
         id: string;
         name: string;
@@ -11,6 +11,8 @@ export declare class InventarioController {
         unitPrice: import("@prisma/client/runtime/library").Decimal;
         unitMeasure: string;
         stock: import("@prisma/client/runtime/library").Decimal;
+        lastCost: import("@prisma/client/runtime/library").Decimal;
+        averageCost: import("@prisma/client/runtime/library").Decimal;
     }[]>;
     getKardex(companyId: string, productId: string): Promise<({
         product: {

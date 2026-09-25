@@ -23,7 +23,7 @@ export declare class InventarioService {
         referenceNumber: string | null;
     })[]>;
     getInventarioValorizado(companyId: string): Promise<{
-        costoPromedio: any;
+        costoPromedio: number;
         valorTotal: number;
         id: string;
         name: string;
@@ -31,6 +31,8 @@ export declare class InventarioService {
         unitPrice: import("@prisma/client/runtime/library").Decimal;
         unitMeasure: string;
         stock: import("@prisma/client/runtime/library").Decimal;
+        lastCost: import("@prisma/client/runtime/library").Decimal;
+        averageCost: import("@prisma/client/runtime/library").Decimal;
     }[]>;
     registrarAjuste(companyId: string, dto: any): Promise<{
         id: string;

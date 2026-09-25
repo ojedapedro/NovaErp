@@ -21,6 +21,9 @@ export interface ValuedProduct {
   stock: number;
   unitMeasure: string;
   unitPrice: number;
+  averageCost?: number;
+  lastCost?: number;
+  costoPromedio: number;
   valorTotal: number;
 }
 
