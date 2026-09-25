@@ -43,7 +43,7 @@ export class CxcService {
     for (const inv of invoices) {
       const balance = Number(inv.total) - Number(inv.amountPaid);
       if (balance > 0) {
-        const refDate = inv.dueDate ? inv.dueDate.getTime() : inv.invoiceDate.getTime();
+        const refDate = inv.invoiceDate.getTime();
         const diffDays = Math.floor((today - refDate) / (1000 * 60 * 60 * 24));
         const days = Math.max(0, diffDays);
 
