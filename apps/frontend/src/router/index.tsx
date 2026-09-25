@@ -24,7 +24,9 @@ import { Ajustes } from '../pages/inventario/Ajustes';
 import { RetencionesIva } from '../pages/retenciones/RetencionesIva';
 import { RetencionesIslr } from '../pages/retenciones/RetencionesIslr';
 import { Cobros } from '../pages/cxc/Cobros';
+import { AgingCxC } from '../pages/cxc/AgingCxC';
 import { Pagos } from '../pages/cxp/Pagos';
+import { AgingCxP } from '../pages/cxp/AgingCxP';
 import { NominaBase } from '../pages/nomina/Nomina';
 import { ParametrosFiscales } from '../pages/configuracion/ParametrosFiscales';
 
@@ -127,13 +129,9 @@ export const router = createBrowserRouter([
         element: <RetencionesIslr />,
       },
       {
-        path: 'cxc',
-        element: <Cobros />,
-      },
+        path: 'cxc', element: <Cobros /> }, { path: 'cxc/aging', element: <AgingCxC /> },
       {
-        path: 'cxp',
-        element: <Pagos />,
-      },
+        path: 'cxp', element: <Pagos /> }, { path: 'cxp/aging', element: <AgingCxP /> },
       {
         path: 'nomina',
         element: <NominaBase />,

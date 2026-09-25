@@ -1,4 +1,4 @@
-﻿import apiClient from "./index";
+import apiClient from "./index";
 
 export const cxcApi = {
   getPendingInvoices: async (customerId?: string) => {
@@ -13,4 +13,8 @@ export const cxcApi = {
     const { data } = await apiClient.post("/cxc/pagos", dto);
     return data;
   },
+  getAging: async () => {
+    const { data } = await apiClient.get("/cxc/aging");
+    return data;
+  }
 };

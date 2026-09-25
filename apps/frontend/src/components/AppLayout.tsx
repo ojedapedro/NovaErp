@@ -92,14 +92,22 @@ export const AppLayout: React.FC = () => {
       ],
     },
     {
-      key: '/cxc',
+      key: 'cxc-group',
       icon: <DollarOutlined />,
       label: 'Cuentas por Cobrar',
+      children: [
+        { key: '/cxc', label: 'Cobros' },
+        { key: '/cxc/aging', label: 'Antigüedad (Aging)' },
+      ],
     },
     {
-      key: '/cxp',
+      key: 'cxp-group',
       icon: <DollarOutlined />,
       label: 'Cuentas por Pagar',
+      children: [
+        { key: '/cxp', label: 'Pagos' },
+        { key: '/cxp/aging', label: 'Antigüedad (Aging)' },
+      ],
     },
     {
       key: '/nomina',
