@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Table, Button, Modal, Form, Input, Select, DatePicker, Row, Col, InputNumber, Typography, Divider, Card, message, AutoComplete, Tag } from "antd";
+import { Table, Button, Modal, Form, Input, Select, DatePicker, Row, Col, InputNumber, Typography, Divider, Card, message, AutoComplete, Tag, Space } from "antd";
 import { PlusOutlined, DeleteOutlined, AppstoreAddOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { comprasApi } from "../../api/compras";
