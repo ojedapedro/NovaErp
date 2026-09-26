@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Button, Typography, Dropdown, Space } from 'antd';
+import { Layout, Menu, Button, Typography, Dropdown, Space, Badge, Popover, List } from 'antd';
 import {
+  BellOutlined,
   DashboardOutlined,
   BookOutlined,
   SettingOutlined,
@@ -13,6 +14,9 @@ import {
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { alertsApi } from '../api/alerts';
+import dayjs from 'dayjs';
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -22,6 +26,18 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  const { data: unreadAlerts = [] } = useQuery({
+    queryKey: ['unread-alerts'],
+    queryFn: alertsApi.getUnread,
+    refetchInterval: 60000,
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: alertsApi.markAsRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['unread-alerts'] }),
+  });
 
   const handleLogout = () => {
     logout();
@@ -148,7 +164,47 @@ export const AppLayout: React.FC = () => {
         />
       </Sider>
       <Layout>
-        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>
+          <Popover
+            placement="bottomRight"
+            title="Notificaciones"
+            content={
+              <div style={{ width: 380, maxHeight: 420, overflowY: 'auto' }}>
+                <List
+                  dataSource={unreadAlerts}
+                  locale={{ emptyText: '✅ Sin alertas pendientes' }}
+                  renderItem={(item: any) => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          type="link"
+                          size="small"
+                          onClick={() => markReadMutation.mutate(item.id)}
+                        >
+                          Marcar leída
+                        </Button>
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={<span style={{ color: item.type === 'OVERDUE_INVOICE' ? '#cf1322' : '#cf6a19' }}>{item.title}</span>}
+                        description={
+                          <>
+                            <div style={{ fontSize: 12 }}>{item.message}</div>
+                            <small style={{ color: '#aaa' }}>{dayjs(item.createdAt).format('DD/MM/YY HH:mm')}</small>
+                          </>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              </div>
+            }
+            trigger="click"
+          >
+            <Badge count={unreadAlerts.length} overflowCount={99}>
+              <Button type="text" icon={<BellOutlined style={{ fontSize: 20 }} />} />
+            </Badge>
+          </Popover>
           <Dropdown
             menu={{
               items: [

@@ -19,6 +19,8 @@ import { CxcModule } from './modules/cxc/cxc.module';
 import { CxpModule } from './modules/cxp/cxp.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { NominaModule } from './modules/nomina/nomina.module';
+import { AlertsModule } from './modules/alerts/alerts.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 // App
 import { AppController } from './app.controller';
@@ -66,6 +68,8 @@ import { SequenceModule } from './core/sequences/sequence.module';
     DashboardModule,
     NominaModule,
     InventarioModule,
+    AlertsModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [

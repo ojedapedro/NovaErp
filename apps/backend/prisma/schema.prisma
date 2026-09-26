@@ -37,6 +37,7 @@ model Company {
   Employee          Employee[]
   PayrollPeriod     PayrollPeriod[]
   InventoryMovement InventoryMovement[]
+  alerts            Alert[]
 
   @@map("companies")
 }
@@ -601,4 +602,22 @@ model InventoryMovement {
 
   @@index([companyId, productId, createdAt])
   @@map("inventory_movements")
+}
+
+// -------------------------------------------------------------
+// ALERTS & NOTIFICATIONS
+// -------------------------------------------------------------
+model Alert {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(100)
+  message   String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, isRead])
+  @@map("alerts")
 }
