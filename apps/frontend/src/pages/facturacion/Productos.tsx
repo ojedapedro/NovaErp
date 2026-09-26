@@ -66,7 +66,8 @@ export const Productos: React.FC = () => {
   };
 
   const columns = [
-    { title: 'Codigo', dataIndex: 'code', key: 'code', width: '12%' },
+    { title: 'Cód. Interno', dataIndex: 'code', key: 'code', width: '12%' },
+    { title: 'Cód. Barras', dataIndex: 'barcode', key: 'barcode', width: '12%' },
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     {
       title: 'Precio (Base)',
@@ -131,7 +132,10 @@ export const Productos: React.FC = () => {
         confirmLoading={createMutation.isPending || updateMutation.isPending}
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
-          <Form.Item name="code" label="Codigo SKU" rules={[{ required: true, message: 'Requerido' }]}>
+          <Form.Item name="code" label="Código Interno (SKU)" extra="Dejar vacío para que el sistema asigne uno (ej. PRD-00001)">
+            <Input />
+          </Form.Item>
+          <Form.Item name="barcode" label="Código de Barras">
             <Input />
           </Form.Item>
           <Form.Item name="name" label="Nombre del Producto o Servicio" rules={[{ required: true, message: 'Requerido' }]}>

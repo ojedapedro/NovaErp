@@ -14,6 +14,7 @@ export interface Customer {
 export interface Product {
   id: string;
   code: string;
+  barcode?: string;
   name: string;
   description?: string;
   unitPrice: number;

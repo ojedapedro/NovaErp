@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { comprasApi } from "../../api/compras";
 import type { PurchaseInvoice } from "../../api/compras";
 import { facturacionApi } from "../../api/facturacion";
+import { BarcodeScanner } from "../../components/BarcodeScanner";
+import { useBarcodeInput } from "../../hooks/useBarcodeInput";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
@@ -17,6 +19,32 @@ export const FacturasCompras = () => {
   const [newProductForm] = Form.useForm();
   const queryClient = useQueryClient();
   const [totals, setTotals] = useState({ subtotal: 0, taxAmount: 0, total: 0 });
+
+  const handleBarcodeOrQrScan = (code: string) => {
+    if (!products) return;
+    const product = products.find((p: any) => p.barcode === code || p.code === code || p.id === code);
+    if (product) {
+      const currentItems = form.getFieldValue("items") || [];
+      const existingIndex = currentItems.findIndex((i: any) => i.productCode === product.code);
+      if (existingIndex >= 0) {
+        currentItems[existingIndex].quantity = (Number(currentItems[existingIndex].quantity) || 0) + 1;
+      } else {
+        currentItems.push({
+          productCode: product.code,
+          productName: product.name,
+          taxRate: product.taxType === "EXENTO" ? 0 : 0.16,
+          quantity: 1,
+          unitPrice: undefined,
+        });
+      }
+      form.setFieldsValue({ items: [...currentItems] });
+      handleValuesChange(null, form.getFieldsValue());
+      message.success("Agregado: " + product.name);
+    } else {
+      message.warning("Producto no encontrado: " + code);
+    }
+  };
+  useBarcodeInput({ onScan: handleBarcodeOrQrScan, enabled: isModalOpen });
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ["purchaseInvoices"],
@@ -218,14 +246,17 @@ export const FacturasCompras = () => {
           {/* Header de columnas + boton Nuevo Producto */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <Text strong style={{ color: "#4b5563" }}>Productos de la Factura (Ingreso a Inventario)</Text>
-            <Button
-              size="small"
-              icon={<AppstoreAddOutlined />}
-              onClick={() => setIsNewProductOpen(true)}
-              style={{ borderColor: "#2563eb", color: "#2563eb" }}
-            >
-              Nuevo Producto al Catalogo
-            </Button>
+            <Space>
+              <BarcodeScanner onScan={handleBarcodeOrQrScan} buttonText="Escanear Producto" />
+              <Button
+                size="small"
+                icon={<AppstoreAddOutlined />}
+                onClick={() => setIsNewProductOpen(true)}
+                style={{ borderColor: "#2563eb", color: "#2563eb" }}
+              >
+                Nuevo Producto al Catalogo
+              </Button>
+            </Space>
           </div>
 
           {/* Column labels */}
@@ -327,14 +358,19 @@ export const FacturasCompras = () => {
       >
         <Form form={newProductForm} layout="vertical" onFinish={handleCreateProduct} style={{ marginTop: 16 }}>
           <Row gutter={12}>
-            <Col span={10}>
-              <Form.Item name="code" label="Codigo" rules={[{ required: true, message: "Requerido" }]}>
-                <Input placeholder="Ej: PROD-001" style={{ textTransform: "uppercase" }} />
+            <Col span={8}>
+              <Form.Item name="code" label="Cód. Interno" extra="Vacío = Auto">
+                <Input placeholder="PROD-001" style={{ textTransform: "uppercase" }} />
               </Form.Item>
             </Col>
-            <Col span={14}>
-              <Form.Item name="name" label="Nombre del Producto" rules={[{ required: true, message: "Requerido" }]}>
-                <Input placeholder="Ej: Cemento Portland 42.5" />
+            <Col span={8}>
+              <Form.Item name="barcode" label="Cód. Barras">
+                <Input placeholder="Escanear..." />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="name" label="Nombre de Producto" rules={[{ required: true, message: "Requerido" }]}>
+                <Input placeholder="Ej: Cemento..." />
               </Form.Item>
             </Col>
           </Row>

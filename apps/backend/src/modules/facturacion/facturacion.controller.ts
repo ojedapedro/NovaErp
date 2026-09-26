@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { FacturacionService } from './facturacion.service';
@@ -60,7 +60,7 @@ export class FacturacionController {
   @ApiOperation({ summary: 'Crear producto/servicio' })
   async createProduct(
     @CurrentCompany() companyId: string,
-    @Body() dto: { code: string; name: string; description?: string; unitPrice: number; unitMeasure?: string; taxType?: string },
+    @Body() dto: { code?: string; barcode?: string; name: string; description?: string; unitPrice: number; unitMeasure?: string; taxType?: string },
   ) {
     return this.facturacionService.createProduct(companyId, dto);
   }

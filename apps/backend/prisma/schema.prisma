@@ -240,6 +240,7 @@ model Product {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   companyId   String   @map("company_id") @db.Uuid
   code        String   @db.VarChar(50)
+  barcode     String?  @db.VarChar(100)
   name        String   @db.VarChar(255)
   description String?  @db.Text
   unitPrice   Decimal  @map("unit_price") @db.Decimal(18, 2)

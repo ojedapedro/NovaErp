@@ -32,10 +32,23 @@ export class FacturacionService {
     return this.prisma.product.findMany({ where: { companyId, isActive: true }, orderBy: { name: 'asc' } });
   }
 
-  async createProduct(companyId: string, dto: { code: string; name: string; description?: string; unitPrice: number; unitMeasure?: string; taxType?: string; }) {
-    const existing = await this.prisma.product.findUnique({ where: { companyId_code: { companyId, code: dto.code } } });
-    if (existing) throw new BadRequestException('Ya existe un producto con codigo ' + dto.code);
-    return this.prisma.product.create({ data: { ...dto, companyId } });
+  async createProduct(companyId: string, dto: { code?: string; barcode?: string; name: string; description?: string; unitPrice: number; unitMeasure?: string; taxType?: string; }) {
+    let code = dto.code?.trim();
+    if (!code) {
+      const count = await this.prisma.product.count({ where: { companyId } });
+      code = `PRD-${(count + 1).toString().padStart(5, '0')}`;
+      let exists = await this.prisma.product.findUnique({ where: { companyId_code: { companyId, code } } });
+      let increment = 1;
+      while (exists) {
+        code = `PRD-${(count + 1 + increment).toString().padStart(5, '0')}`;
+        exists = await this.prisma.product.findUnique({ where: { companyId_code: { companyId, code } } });
+        increment++;
+      }
+    } else {
+      const existing = await this.prisma.product.findUnique({ where: { companyId_code: { companyId, code } } });
+      if (existing) throw new BadRequestException('Ya existe un producto con el codigo interno ' + code);
+    }
+    return this.prisma.product.create({ data: { ...dto, code, companyId } });
   }
 
   async updateProduct(companyId: string, id: string, dto: any) {

@@ -48,7 +48,7 @@ export const NuevaFactura: React.FC = () => {
 
   const handleBarcodeOrQrScan = (code: string) => {
     if (!products) return;
-    const product = products.find(p => p.code === code || p.id === code);
+    const product = products.find(p => p.barcode === code || p.code === code || p.id === code);
     if (product) {
       handleAddProduct(product.id);
     } else {
