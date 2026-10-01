@@ -102,10 +102,10 @@ export class RetencionesPdfService {
         doc.font("Helvetica").fillColor("#222").text(value || "—", x, yPos + 11, { width: colW });
       };
 
-      drawField("Razón Social", company.legalName || company.name, 50, W, y);
+      drawField("Razón Social", company.legalName, 50, W, y);
       y += 28;
       drawField("RIF", company.rif || "—", 50, W / 2 - 10, y);
-      drawField("Dirección Fiscal", company.address || "—", 50 + W / 2 + 10, W / 2 - 10, y);
+      drawField("Dirección Fiscal", company.fiscalAddress || "—", 50 + W / 2 + 10, W / 2 - 10, y);
       y += 32;
 
       // ─── DATOS DEL PROVEEDOR RETENIDO ────────────────────────────────────────
