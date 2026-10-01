@@ -1,6 +1,6 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Card, Typography, Table, Button, Select, Space, Modal, Form, Input, DatePicker, message } from "antd";
-import { DownloadOutlined, PlusOutlined } from "@ant-design/icons";
+import { DownloadOutlined, PlusOutlined, FilePdfOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { retencionesApi } from "../../api/retenciones";
 import { comprasApi } from "../../api/compras";
@@ -61,6 +61,22 @@ export const RetencionesIva: React.FC = () => {
     { title: "IVA", dataIndex: "ivaAmount", key: "ivaAmount", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
     { title: "% Ret.", dataIndex: "withholdingPct", key: "withholdingPct", align: "right" as const, render: (v: number) => v + "%" },
     { title: "Retenido", dataIndex: "withheldAmount", key: "withheldAmount", align: "right" as const, render: (v: number) => Number(v).toFixed(2) },
+    {
+      title: "Comprobante",
+      key: "actions",
+      align: "center" as const,
+      render: (_: any, record: any) => (
+        <Button
+          type="primary"
+          size="small"
+          icon={<FilePdfOutlined />}
+          onClick={() => retencionesApi.downloadIvaComprobante(record.id, record.voucherNumber)}
+          title="Descargar comprobante PDF"
+        >
+          PDF
+        </Button>
+      ),
+    },
   ];
 
   return (

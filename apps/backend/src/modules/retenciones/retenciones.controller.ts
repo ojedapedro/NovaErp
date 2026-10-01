@@ -1,7 +1,8 @@
-﻿import { Controller, Get, Post, Body, Param, Query, UseGuards, Res } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Res } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Response } from "express";
 import { RetencionesService } from "./retenciones.service";
+import { RetencionesPdfService } from "./retenciones-pdf.service";
 import { JwtAuthGuard } from "../../core/auth/guards/jwt.guard";
 import { CurrentCompany } from "../../core/auth/decorators/current-user.decorator";
 
@@ -10,7 +11,10 @@ import { CurrentCompany } from "../../core/auth/decorators/current-user.decorato
 @UseGuards(JwtAuthGuard)
 @Controller("retenciones")
 export class RetencionesController {
-  constructor(private readonly retencionesService: RetencionesService) {}
+  constructor(
+    private readonly retencionesService: RetencionesService,
+    private readonly retencionesPdfService: RetencionesPdfService,
+  ) {}
 
   // ================= IVA =================
   @Get("iva")
@@ -23,6 +27,19 @@ export class RetencionesController {
   @ApiOperation({ summary: "Registrar Retención de IVA" })
   createIvaWithholding(@CurrentCompany() companyId: string, @Body() dto: any) {
     return this.retencionesService.createIvaWithholding(companyId, dto);
+  }
+
+  @Get("iva/:id/comprobante")
+  @ApiOperation({ summary: "Descargar comprobante PDF de Retención de IVA" })
+  async downloadIvaComprobante(
+    @CurrentCompany() companyId: string,
+    @Param("id") id: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.retencionesPdfService.generateIvaWithholdingPdf(companyId, id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="comprobante-retencion-iva.pdf"`);
+    return res.send(buffer);
   }
 
   @Get("iva/exportar-txt")

@@ -28,6 +28,24 @@ export const retencionesApi = {
       .catch(e => console.error("Error al descargar TXT IVA:", e));
   },
 
+  downloadIvaComprobante: (id: string, voucherNumber: string) => {
+    const { token } = useAuthStore.getState();
+    const url = `${import.meta.env.VITE_API_URL || "http://localhost:4000/api"}/retenciones/iva/${id}/comprobante`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.blob();
+      })
+      .then((blob) => {
+        const a = document.createElement("a");
+        a.href = window.URL.createObjectURL(blob);
+        a.download = `comprobante-retencion-iva-${voucherNumber}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(a.href);
+      })
+      .catch(e => console.error("Error al descargar comprobante:", e));
+  },
+
   // ISLR
   getIslrConcepts: async () => {
     const { data } = await apiClient.get("/retenciones/islr/conceptos");
